@@ -1,0 +1,54 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f7f9fb;
+}
+
+.card {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+}
+
+.btn-primary {
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(45, 212, 191, 0.4);
+}
+
+.loading-spinner {
+    border-top-color: #38a169;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar {
+    height: 1.5rem;
+    border-radius: 0.5rem;
+    line-height: 1.5rem;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    transition: width 0.5s ease-out;
+}
+
+.message-success {
+    background-color: #d1fae5;
+    color: #065f46;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+}
+
+.message-error {
+    background-color: #fee2e2;
+    color: #991b1b;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+}
