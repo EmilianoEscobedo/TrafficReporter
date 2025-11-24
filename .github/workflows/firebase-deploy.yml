@@ -1,0 +1,21 @@
+name: Deploy to Firebase Hosting
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Deploy to Firebase
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only hosting:transito-9-de-julio
+        env:
+          PROJECT_ID: "transito-9-de-julio"
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRANSITO_9_DE_JULIO }}
+
