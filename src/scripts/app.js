@@ -1,7 +1,19 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, addDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import {initializeApp} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import {
+    getAuth,
+    onAuthStateChanged,
+    signInAnonymously,
+    signInWithCustomToken
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import {
+    addDoc,
+    collection,
+    getFirestore,
+    onSnapshot,
+    query,
+    serverTimestamp,
+    setLogLevel
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 setLogLevel('Debug');
 
@@ -18,7 +30,7 @@ function getEnvironmentVars() {
         try {
             if (typeof __firebase_config === 'string') {
                 firebaseConfig = JSON.parse(__firebase_config);
-            } else if (typeof __firebase_config === 'object' && __firebase_config !== null) {
+            } else if (typeof __firebase_config === 'object') {
                 firebaseConfig = __firebase_config;
             } else {
                 console.error("ERROR: __firebase_config no es una cadena ni un objeto válido. Tipo:", typeof __firebase_config);
@@ -143,8 +155,7 @@ async function initializeFirebase() {
 
 function getSelectedVehicles() {
     const checkboxes = document.querySelectorAll('input[name="vehicles_involved"]:checked');
-    const vehicles = Array.from(checkboxes).map(cb => cb.value);
-    return vehicles;
+    return Array.from(checkboxes).map(cb => cb.value);
 }
 
 form.addEventListener('submit', async (e) => {
