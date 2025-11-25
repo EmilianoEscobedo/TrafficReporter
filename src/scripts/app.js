@@ -1,442 +1,581 @@
-import {initializeApp} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import {
     getAuth,
-    onAuthStateChanged,
-    signInAnonymously,
-    signInWithCustomToken
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
-    addDoc,
-    collection,
     getFirestore,
+    collection,
+    addDoc,
     onSnapshot,
     query,
+    orderBy,
     serverTimestamp,
     setLogLevel
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 setLogLevel('Debug');
 
-function getEnvironmentVars() {
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    let firebaseConfig = {};
-    let initialAuthToken = null;
+class SiniestrosApp {
+    constructor() {
+        this.app = null;
+        this.db = null;
+        this.auth = null;
+        this.currentUser = null;
+        this.isAuthReady = false;
+        this.allAccidentRecords = [];
 
-    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        initialAuthToken = __initial_auth_token;
+        this.mapManager = new window.MapManager();
+        this.pwaManager = new window.PWAManager();
+
+        this.initializeElements();
+        this.attachEventListeners();
     }
 
-    if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-        try {
-            if (typeof __firebase_config === 'string') {
-                firebaseConfig = JSON.parse(__firebase_config);
-            } else if (typeof __firebase_config === 'object') {
-                firebaseConfig = __firebase_config;
-            } else {
-                console.error("ERROR: __firebase_config no es una cadena ni un objeto válido. Tipo:", typeof __firebase_config);
+    initializeElements() {
+        this.loginScreen = document.getElementById('login-screen');
+        this.appScreen = document.getElementById('app-screen');
+        this.googleSigninBtn = document.getElementById('google-signin-btn');
+        this.signinText = document.getElementById('signin-text');
+        this.signinSpinner = document.getElementById('signin-spinner');
+        this.loginError = document.getElementById('login-error');
+        this.logoutBtn = document.getElementById('logout-btn');
+        this.userEmailDisplay = document.getElementById('user-email');
+        this.userEmailMobile = document.getElementById('user-email-mobile');
+
+        this.form = document.getElementById('accident-form');
+        this.recordsList = document.getElementById('records-list');
+        this.accidentCount = document.getElementById('accident-count');
+        this.emptyState = document.getElementById('empty-state');
+        this.submitBtn = document.getElementById('submit-btn');
+        this.submitText = document.getElementById('submit-text');
+        this.loadingSpinner = document.getElementById('loading-spinner');
+        this.messageArea = document.getElementById('message-area');
+        this.fechaInput = document.getElementById('fecha');
+
+        this.statsLoading = document.getElementById('stats-loading');
+        this.statsViaSection = document.getElementById('stats-via');
+        this.statsGravedadSection = document.getElementById('stats-gravedad');
+        this.statsVehiculosSection = document.getElementById('stats-vehiculos');
+        this.chartVia = document.getElementById('chart-via');
+        this.chartGravedad = document.getElementById('chart-gravedad');
+        this.chartVehiculos = document.getElementById('chart-vehiculos');
+
+        this.locateMeBtn = document.getElementById('locate-me-btn');
+        this.showAllAccidentsBtn = document.getElementById('show-all-accidents');
+        this.showFatalAccidentsBtn = document.getElementById('show-fatal-accidents');
+    }
+
+    attachEventListeners() {
+        if (this.googleSigninBtn) {
+            this.googleSigninBtn.addEventListener('click', () => this.signInWithGoogle());
+        }
+        if (this.logoutBtn) {
+            this.logoutBtn.addEventListener('click', () => this.handleLogout());
+        }
+        if (this.form) {
+            this.form.addEventListener('submit', (e) => this.handleFormSubmit(e));
+        }
+        if (this.locateMeBtn) {
+            this.locateMeBtn.addEventListener('click', () => this.mapManager.getCurrentLocation());
+        }
+        if (this.showAllAccidentsBtn) {
+            this.showAllAccidentsBtn.addEventListener('click', () => this.mapManager.filterAccidentMarkers(false));
+        }
+        if (this.showFatalAccidentsBtn) {
+            this.showFatalAccidentsBtn.addEventListener('click', () => this.mapManager.filterAccidentMarkers(true));
+        }
+
+        window.showTab = (tabName) => this.showTab(tabName);
+        window.showRecordOnMap = (lat, lng, ubicacion) => this.mapManager.showRecordOnMap(lat, lng, ubicacion);
+        window.displayMessage = (text, isSuccess) => this.displayMessage(text, isSuccess);
+    }
+
+    getEnvironmentVars() {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let firebaseConfig = {};
+        let allowedEmails = [];
+
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try {
+                if (typeof __firebase_config === 'string') {
+                    firebaseConfig = JSON.parse(__firebase_config);
+                } else {
+                    firebaseConfig = __firebase_config;
+                }
+            } catch (e) {
+                console.error("Error parsing Firebase config:", e);
             }
-        } catch (e) {
-            console.error("Error Crítico al intentar parsear __firebase_config como JSON:", e, "Valor recibido:", __firebase_config);
-            displayMessage("Error Crítico: La configuración de Firebase está corrupta. No se puede conectar.", false);
+        }
+
+        if (typeof __allowed_emails !== 'undefined' && __allowed_emails) {
+            allowedEmails = __allowed_emails;
+        }
+
+        return { appId, firebaseConfig, allowedEmails };
+    }
+
+    displayMessage(text, isSuccess = true) {
+        if (!this.messageArea) return;
+
+        this.messageArea.textContent = text;
+        this.messageArea.classList.remove('hidden', 'message-success', 'message-error');
+        if (isSuccess) {
+            this.messageArea.classList.add('message-success');
+        } else {
+            this.messageArea.classList.add('message-error');
+        }
+        setTimeout(() => {
+            this.messageArea.classList.add('hidden');
+        }, 8000);
+    }
+
+    displayLoginError(text) {
+        if (!this.loginError) return;
+
+        this.loginError.textContent = text;
+        this.loginError.classList.remove('hidden');
+        setTimeout(() => {
+            this.loginError.classList.add('hidden');
+        }, 8000);
+    }
+
+    showLoginScreen() {
+        this.loginScreen?.classList.remove('hidden');
+        this.appScreen?.classList.add('hidden');
+    }
+
+    showAppScreen() {
+        this.loginScreen?.classList.add('hidden');
+        this.appScreen?.classList.remove('hidden');
+        setTimeout(() => this.mapManager.initializeMaps(), 100);
+    }
+
+    isEmailAllowed(email) {
+        const { allowedEmails } = this.getEnvironmentVars();
+        return allowedEmails.includes(email);
+    }
+
+    showTab(tabName) {
+        const tabs = ['registro', 'mapa', 'estadisticas'];
+        tabs.forEach(tab => {
+            const contentEl = document.getElementById(`content-${tab}`);
+            const tabEl = document.getElementById(`tab-${tab}`);
+
+            if (contentEl) contentEl.classList.add('hidden');
+            if (tabEl) {
+                tabEl.classList.remove('border-teal-500', 'text-teal-600');
+                tabEl.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            }
+        });
+
+        const activeContent = document.getElementById(`content-${tabName}`);
+        const activeTab = document.getElementById(`tab-${tabName}`);
+
+        if (activeContent) activeContent.classList.remove('hidden');
+        if (activeTab) {
+            activeTab.classList.add('border-teal-500', 'text-teal-600');
+            activeTab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        }
+
+        if (tabName === 'estadisticas') {
+            this.renderStatistics(this.allAccidentRecords);
+        } else if (tabName === 'mapa') {
+            setTimeout(() => {
+                this.mapManager.invalidateSize();
+                this.mapManager.loadAccidentMarkers(this.allAccidentRecords);
+            }, 100);
         }
     }
 
-    return { appId, firebaseConfig, initialAuthToken };
-}
+    async initializeFirebase() {
+        try {
+            const { firebaseConfig } = this.getEnvironmentVars();
 
-const { appId, firebaseConfig, initialAuthToken } = getEnvironmentVars();
+            if (Object.keys(firebaseConfig).length === 0 || !firebaseConfig.apiKey) {
+                this.displayLoginError("Error crítico: Configuración de Firebase no encontrada.");
+                return;
+            }
 
-const form = document.getElementById('accident-form');
-const recordsList = document.getElementById('records-list');
-const accidentCount = document.getElementById('accident-count');
-const userIdDisplay = document.getElementById('user-id');
-const emptyState = document.getElementById('empty-state');
-const submitBtn = document.getElementById('submit-btn');
-const submitText = document.getElementById('submit-text');
-const loadingSpinner = document.getElementById('loading-spinner');
-const messageArea = document.getElementById('message-area');
-const fechaInput = document.getElementById('fecha');
-const statsLoading = document.getElementById('stats-loading');
-const statsViaSection = document.getElementById('stats-via');
-const statsGravedadSection = document.getElementById('stats-gravedad');
-const statsVehiculosSection = document.getElementById('stats-vehiculos');
-const chartVia = document.getElementById('chart-via');
-const chartGravedad = document.getElementById('chart-gravedad');
-const chartVehiculos = document.getElementById('chart-vehiculos');
+            this.app = initializeApp(firebaseConfig);
+            this.db = getFirestore(this.app);
+            this.auth = getAuth(this.app);
 
-let app;
-let db;
-let auth;
-let currentUserId = null;
-let isAuthReady = false;
-let allAccidentRecords = [];
+            onAuthStateChanged(this.auth, (user) => {
+                if (user && this.isEmailAllowed(user.email)) {
+                    this.currentUser = user;
+                    if (this.userEmailDisplay) this.userEmailDisplay.textContent = user.email;
+                    if (this.userEmailMobile) this.userEmailMobile.textContent = user.email;
+                    this.isAuthReady = true;
+                    this.showAppScreen();
+                    this.loadAccidentRecords();
+                } else if (user && !this.isEmailAllowed(user.email)) {
+                    signOut(this.auth);
+                    this.displayLoginError(`Acceso denegado. El email ${user.email} no está autorizado.`);
+                    this.showLoginScreen();
+                } else {
+                    this.currentUser = null;
+                    this.isAuthReady = false;
+                    this.showLoginScreen();
+                }
+            });
 
-function displayMessage(text, isSuccess = true) {
-    messageArea.textContent = text;
-    messageArea.classList.remove('hidden', 'message-success', 'message-error');
-    if (isSuccess) {
-        messageArea.classList.add('message-success');
-        messageArea.classList.remove('message-error');
-    } else {
-        messageArea.classList.add('message-error');
-        messageArea.classList.remove('message-success');
+        } catch (error) {
+            console.error("Error initializing Firebase:", error);
+            this.displayLoginError(`Error de conexión: ${error.message}`);
+        }
     }
-    setTimeout(() => {
-        messageArea.classList.add('hidden');
-    }, 8000);
-}
 
-window.showTab = function(tabName) {
-    const tabs = ['registro', 'estadisticas'];
-    tabs.forEach(tab => {
-        document.getElementById(`content-${tab}`).classList.add('hidden');
-        document.getElementById(`tab-${tab}`).classList.remove('border-teal-500', 'text-teal-600');
-        document.getElementById(`tab-${tab}`).classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-    });
+    async signInWithGoogle() {
+        if (!this.signinText || !this.signinSpinner || !this.googleSigninBtn) return;
 
-    document.getElementById(`content-${tabName}`).classList.remove('hidden');
-    document.getElementById(`tab-${tabName}`).classList.add('border-teal-500', 'text-teal-600');
-    document.getElementById(`tab-${tabName}`).classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        this.signinText.textContent = 'Conectando...';
+        this.signinSpinner.classList.remove('hidden');
+        this.googleSigninBtn.disabled = true;
 
-    if (tabName === 'estadisticas') {
-        renderStatistics(allAccidentRecords);
+        try {
+            const provider = new GoogleAuthProvider();
+            await signInWithPopup(this.auth, provider);
+        } catch (error) {
+            console.error("Error signing in:", error);
+            if (error.code === 'auth/popup-closed-by-user') {
+                this.displayLoginError("Inicio de sesión cancelado.");
+            } else {
+                this.displayLoginError(`Error de autenticación: ${error.message}`);
+            }
+        } finally {
+            this.signinText.textContent = 'Iniciar Sesión';
+            this.signinSpinner.classList.add('hidden');
+            this.googleSigninBtn.disabled = false;
+        }
     }
-}
 
-async function initializeFirebase() {
-    try {
-        if (Object.keys(firebaseConfig).length === 0 || !firebaseConfig.apiKey) {
-            console.error("FATAL ERROR: Firebase Config is incomplete or missing. Cannot connect to database.");
-            userIdDisplay.textContent = 'ERROR_CONFIG';
-            displayMessage("Error Crítico: La configuración de la base de datos no está disponible. Los datos no se guardarán.", false);
+    async handleLogout() {
+        try {
+            await signOut(this.auth);
+        } catch (error) {
+            console.error("Error signing out:", error);
+        }
+    }
+
+    getSelectedVehicles() {
+        const checkboxes = document.querySelectorAll('input[name="vehicles_involved"]:checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    }
+
+    async handleFormSubmit(e) {
+        e.preventDefault();
+
+        if (!this.isAuthReady || !this.currentUser || !this.db) {
+            this.displayMessage("Sistema no disponible. Por favor, recarga la página.", false);
             return;
         }
 
-        app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
+        const selectedVehicles = this.getSelectedVehicles();
+        if (selectedVehicles.length === 0) {
+            this.displayMessage("Por favor, selecciona al menos un tipo de vehículo implicado.", false);
+            return;
+        }
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUserId = user.uid;
-                userIdDisplay.textContent = currentUserId;
-                isAuthReady = true;
-                console.log("Auth State Changed: Usuario autenticado. UserID:", currentUserId);
-                loadAccidentRecords();
-            } else {
-                currentUserId = null;
-                userIdDisplay.textContent = 'Auth en Progreso/Falló';
-                isAuthReady = false;
-                console.log("Auth State Changed: Usuario desautenticado/anónimo.");
+        const tipoVia = document.getElementById('tipo_via')?.value;
+        const tipoSiniestro = document.getElementById('tipo')?.value;
+        const gravedad = document.getElementById('gravedad')?.value;
+
+        if (!tipoVia || !tipoSiniestro || !gravedad) {
+            this.displayMessage("Por favor, completa todos los campos obligatorios.", false);
+            return;
+        }
+
+        if (!this.mapManager.selectedLatLng) {
+            this.displayMessage("Por favor, selecciona la ubicación en el mapa.", false);
+            return;
+        }
+
+        const formData = new FormData(this.form);
+        const data = {
+            fecha: formData.get('fecha'),
+            ubicacion: formData.get('ubicacion'),
+            tipo_via: tipoVia,
+            tipo: tipoSiniestro,
+            gravedad: gravedad,
+            vehiculos_total: parseInt(formData.get('vehiculos_total') || '0'),
+            vehicles_involved: selectedVehicles,
+            descripcion: formData.get('descripcion'),
+            latitude: this.mapManager.selectedLatLng.lat,
+            longitude: this.mapManager.selectedLatLng.lng,
+            createdAt: serverTimestamp(),
+            recordedBy: this.currentUser.email,
+            recordedByUid: this.currentUser.uid
+        };
+
+        this.submitText.textContent = 'Guardando...';
+        this.loadingSpinner?.classList.remove('hidden');
+        if (this.submitBtn) this.submitBtn.disabled = true;
+
+        try {
+            await addDoc(collection(this.db, 'shared_accident_reports'), data);
+
+            this.form.reset();
+            this.setInitialDateTime();
+            document.querySelectorAll('input[name="vehicles_involved"]:checked').forEach(cb => cb.checked = false);
+            this.mapManager.resetFormMap();
+            this.displayMessage("Registro exitoso. Nuevo accidente guardado.", true);
+
+        } catch (error) {
+            console.error("Error saving record:", error);
+            this.displayMessage(`Error al guardar: ${error.message}`, false);
+        } finally {
+            this.submitText.textContent = 'Registrar Accidente';
+            this.loadingSpinner?.classList.add('hidden');
+            if (this.submitBtn) this.submitBtn.disabled = false;
+        }
+    }
+
+    loadAccidentRecords() {
+        if (!this.isAuthReady || !this.currentUser || !this.db) return;
+
+        const q = query(
+            collection(this.db, 'shared_accident_reports'),
+            orderBy('createdAt', 'desc')
+        );
+
+        onSnapshot(q, (snapshot) => {
+            const records = [];
+            snapshot.forEach((doc) => {
+                records.push({ id: doc.id, ...doc.data() });
+            });
+
+            this.allAccidentRecords = records;
+            this.renderRecords(records);
+
+            if (this.accidentCount) {
+                this.accidentCount.textContent = records.length;
             }
-        });
 
-        if (initialAuthToken) {
-            try {
-                await signInWithCustomToken(auth, initialAuthToken);
-                console.log("Autenticación con Custom Token exitosa.");
-            } catch(e) {
-                console.warn("Fallo signInWithCustomToken, intentando signInAnonymously:", e);
-                await signInAnonymously(auth);
-                console.log("Autenticación anónima fallback exitosa.");
+            this.mapManager.loadAccidentMarkers(records);
+
+            if (!document.getElementById('content-estadisticas')?.classList.contains('hidden')) {
+                this.renderStatistics(records);
             }
-        } else {
-            await signInAnonymously(auth);
-            console.log("Autenticación anónima directa exitosa.");
+        }, (error) => {
+            console.error("Error loading records:", error);
+            this.displayMessage(`Error al cargar registros: ${error.message}`, false);
+        });
+    }
+
+    getVehicleBadge(vehicle) {
+        let color = 'bg-gray-200 text-gray-800';
+        if (vehicle === 'Moto') color = 'bg-red-100 text-red-700';
+        else if (vehicle === 'Bicicleta' || vehicle === 'Peatón') color = 'bg-yellow-100 text-yellow-700';
+        else if (vehicle === 'Camión') color = 'bg-blue-100 text-blue-700';
+        else if (vehicle === 'Camioneta') color = 'bg-purple-100 text-purple-700';
+        else if (vehicle === 'Auto') color = 'bg-green-100 text-green-700';
+        else if (vehicle === 'Utilitario') color = 'bg-orange-100 text-orange-700';
+
+        return `<span class="badge ${color}">${vehicle}</span>`;
+    }
+
+    renderRecords(records) {
+        if (!this.recordsList) return;
+
+        this.recordsList.innerHTML = '';
+
+        if (records.length === 0) {
+            this.emptyState?.classList.remove('hidden');
+            return;
+        }
+        this.emptyState?.classList.add('hidden');
+
+        records.forEach(record => {
+            const date = record.fecha ? new Date(record.fecha).toLocaleString('es-AR') : 'Fecha no especificada';
+            const vehicleBadges = (record.vehicles_involved || []).map(v => this.getVehicleBadge(v)).join('');
+            const recordedBy = record.recordedBy || 'Usuario no identificado';
+
+            let severityColor = 'text-green-600';
+            if (record.gravedad === 'Lesiones Leves') severityColor = 'text-yellow-600';
+            else if (record.gravedad === 'Lesiones Graves') severityColor = 'text-orange-600';
+            else if (record.gravedad === 'Fatal') severityColor = 'text-red-600';
+
+            let viaHighlightClass = 'text-gray-700 font-normal';
+            let recordWrapperClass = 'bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200';
+
+            if (record.tipo_via?.includes('CON Boulevard')) {
+                viaHighlightClass = 'bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-xs';
+                recordWrapperClass = 'bg-red-50 p-3 sm:p-4 rounded-lg border-2 border-red-400 shadow-lg';
+            }
+
+            const element = document.createElement('div');
+            element.className = recordWrapperClass;
+
+            const showLocationBtn = record.latitude && record.longitude ?
+                `<button onclick="showRecordOnMap(${record.latitude}, ${record.longitude}, '${record.ubicacion}')" class="text-blue-600 hover:text-blue-800 text-xs font-medium">📍 Ver en Mapa</button>` : '';
+
+            element.innerHTML = `
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 mb-2 space-y-1 sm:space-y-0">
+                    <span class="text-xs sm:text-sm text-gray-400 font-medium">${date}</span>
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-2">
+                        <span class="font-bold text-base sm:text-lg text-gray-800">${record.ubicacion}</span>
+                        ${showLocationBtn}
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 text-xs sm:text-sm gap-2">
+                    <p><strong>Tipo de Siniestro:</strong> ${record.tipo}</p>
+                    <p><strong>Total Vehículos:</strong> ${record.vehiculos_total || 0}</p>
+                    <p><strong>Gravedad:</strong> <span class="${severityColor} font-semibold">${record.gravedad}</span></p>
+                    <p><strong>Vía:</strong> <span class="${viaHighlightClass}">${record.tipo_via}</span></p>
+                </div>
+                
+                <div class="mt-3 border-t pt-2">
+                    <p class="text-xs font-semibold text-gray-500 mb-1">Vehículos Implicados:</p>
+                    <div class="flex flex-wrap">${vehicleBadges}</div>
+                </div>
+
+                <div class="mt-2 text-xs text-gray-500 border-t pt-2">
+                    <p><strong>Registrado por:</strong> ${recordedBy}</p>
+                </div>
+
+                ${record.descripcion ? `<p class="mt-3 text-gray-600 italic text-xs sm:text-sm border-t pt-2">${record.descripcion}</p>` : ''}
+            `;
+            this.recordsList.appendChild(element);
+        });
+    }
+
+    renderStatistics(records) {
+        const total = records.length;
+        this.statsLoading?.classList.add('hidden');
+
+        if (total === 0) {
+            if (this.statsLoading) this.statsLoading.textContent = "No hay suficientes registros para generar estadísticas.";
+            this.statsLoading?.classList.remove('hidden');
+            this.statsViaSection?.classList.add('hidden');
+            this.statsGravedadSection?.classList.add('hidden');
+            this.statsVehiculosSection?.classList.add('hidden');
+            return;
         }
 
-    } catch (error) {
-        console.error("Error al inicializar o autenticar en Firebase:", error);
-        displayMessage(`Error Crítico de DB: ${error.message}. Verifica las reglas de seguridad.`, false);
-        userIdDisplay.textContent = 'FALLO_CRÍTICO';
-        isAuthReady = false;
-    }
-}
+        this.statsViaSection?.classList.remove('hidden');
+        this.statsGravedadSection?.classList.remove('hidden');
+        this.statsVehiculosSection?.classList.remove('hidden');
 
-function getSelectedVehicles() {
-    const checkboxes = document.querySelectorAll('input[name="vehicles_involved"]:checked');
-    return Array.from(checkboxes).map(cb => cb.value);
-}
+        const viaCounts = records.reduce((acc, record) => {
+            const key = record.tipo_via || 'Desconocido';
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
 
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+        if (this.chartVia) {
+            this.chartVia.innerHTML = Object.entries(viaCounts).map(([via, count]) => {
+                const percentage = ((count / total) * 100).toFixed(1);
+                let barColor = 'bg-teal-500';
+                if (via.includes('CON Boulevard')) {
+                    barColor = 'bg-red-600';
+                }
 
-    if (!isAuthReady || !currentUserId || !db) {
-        console.error("Firebase no está listo. isAuthReady:", isAuthReady, " currentUserId:", currentUserId);
-        displayMessage("Base de datos no disponible. Por favor, espera o recarga la página. Revisar la consola para ver errores de autenticación.", false);
-        return;
-    }
+                return `
+                    <div class="relative w-full">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs sm:text-sm font-medium text-gray-800">${via}</span>
+                            <span class="text-xs font-semibold ${barColor.replace('bg-', 'text-')}">${count} (${percentage}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-lg overflow-hidden">
+                            <div class="progress-bar ${barColor}" style="width: ${percentage}%">${percentage}%</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
 
-    const selectedVehicles = getSelectedVehicles();
-    if (selectedVehicles.length === 0) {
-        displayMessage("Por favor, selecciona al menos un tipo de vehículo implicado.", false);
-        return;
-    }
+        const gravedadOrder = ['Fatal', 'Lesiones Graves', 'Lesiones Leves', 'Sin Lesiones'];
+        const gravedadCounts = records.reduce((acc, record) => {
+            const key = record.gravedad || 'Desconocido';
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
 
-    const tipoVia = document.getElementById('tipo_via').value;
-    const tipoSiniestro = document.getElementById('tipo').value;
-    const gravedad = document.getElementById('gravedad').value;
-    if (!tipoVia || !tipoSiniestro || !gravedad) {
-        displayMessage("Por favor, completa todos los campos obligatorios del formulario (Tipo de Vía, Tipo de Siniestro, Gravedad).", false);
-        return;
-    }
+        const sortedGravedades = Object.entries(gravedadCounts).sort(([a], [b]) => gravedadOrder.indexOf(a) - gravedadOrder.indexOf(b));
 
-    const formData = new FormData(form);
+        if (this.chartGravedad) {
+            this.chartGravedad.innerHTML = sortedGravedades.map(([gravedad, count]) => {
+                const percentage = ((count / total) * 100).toFixed(1);
+                let barColor = 'bg-gray-400';
+                if (gravedad === 'Fatal') barColor = 'bg-red-800';
+                else if (gravedad === 'Lesiones Graves') barColor = 'bg-orange-600';
+                else if (gravedad === 'Lesiones Leves') barColor = 'bg-yellow-500';
+                else if (gravedad === 'Sin Lesiones') barColor = 'bg-green-600';
 
-    const vehiculosTotalValue = formData.get('vehiculos_total');
+                return `
+                    <div class="relative w-full">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs sm:text-sm font-medium text-gray-800">${gravedad}</span>
+                            <span class="text-xs font-semibold ${barColor.replace('bg-', 'text-')}">${count} (${percentage}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-lg overflow-hidden">
+                            <div class="progress-bar ${barColor}" style="width: ${percentage}%">${percentage}%</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
 
-    const data = {
-        fecha: formData.get('fecha'),
-        ubicacion: formData.get('ubicacion'),
-        tipo_via: tipoVia,
-        tipo: tipoSiniestro,
-        gravedad: gravedad,
-        vehiculos_total: parseInt(vehiculosTotalValue || '0'),
-        vehicles_involved: selectedVehicles,
-        descripcion: formData.get('descripcion'),
-        createdAt: serverTimestamp(),
-        recordedBy: currentUserId,
-    };
-
-    submitText.textContent = 'Guardando...';
-    loadingSpinner.classList.remove('hidden');
-    submitBtn.disabled = true;
-
-    try {
-        const collectionPath = `artifacts/${appId}/users/${currentUserId}/accident_records`;
-        await addDoc(collection(db, collectionPath), data);
-
-        form.reset();
-        setInitialDateTime();
-        document.querySelectorAll('input[name="vehicles_involved"]:checked').forEach(cb => cb.checked = false);
-
-        displayMessage(`Registro exitoso. Nuevo accidente guardado.`, true);
-
-    } catch (error) {
-        console.error("Error al agregar documento:", error);
-        displayMessage(`Error al guardar: ${error.message}. Esto puede ser un problema de permisos.`, false);
-
-    } finally {
-        submitText.textContent = 'Registrar Accidente';
-        loadingSpinner.classList.add('hidden');
-        submitBtn.disabled = false;
-    }
-});
-
-function loadAccidentRecords() {
-    if (!isAuthReady || !currentUserId || !db) return;
-
-    const collectionPath = `artifacts/${appId}/users/${currentUserId}/accident_records`;
-    const q = query(collection(db, collectionPath));
-
-    onSnapshot(q, (snapshot) => {
-        const records = [];
-        snapshot.forEach((doc) => {
-            records.push({ id: doc.id, ...doc.data() });
+        const vehicleCounts = {};
+        records.forEach(record => {
+            (record.vehicles_involved || []).forEach(vehicle => {
+                vehicleCounts[vehicle] = (vehicleCounts[vehicle] || 0) + 1;
+            });
         });
 
-        allAccidentRecords = records;
+        const totalInvolvements = Object.values(vehicleCounts).reduce((sum, count) => sum + count, 0);
+        const sortedVehicles = Object.entries(vehicleCounts).sort(([, a], [, b]) => b - a);
 
-        records.sort((a, b) => {
-            const timeA = a.createdAt?.toMillis() || 0;
-            const timeB = b.createdAt?.toMillis() || 0;
-            return timeB - timeA;
-        });
+        if (this.chartVehiculos) {
+            this.chartVehiculos.innerHTML = sortedVehicles.map(([vehicle, count]) => {
+                const percentage = totalInvolvements > 0 ? ((count / totalInvolvements) * 100).toFixed(1) : 0;
+                let barColor = 'bg-gray-500';
+                if (vehicle === 'Moto') barColor = 'bg-red-600';
+                else if (vehicle === 'Bicicleta' || vehicle === 'Peatón') barColor = 'bg-yellow-600';
+                else if (vehicle === 'Camión') barColor = 'bg-blue-600';
+                else if (vehicle === 'Camioneta') barColor = 'bg-purple-600';
+                else if (vehicle === 'Auto') barColor = 'bg-green-600';
+                else if (vehicle === 'Utilitario') barColor = 'bg-orange-600';
 
-        renderRecords(records);
-        accidentCount.textContent = records.length;
-
-        if (!document.getElementById('content-estadisticas').classList.contains('hidden')) {
-            renderStatistics(records);
+                return `
+                    <div class="relative w-full">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs sm:text-sm font-medium text-gray-800">${vehicle}</span>
+                            <span class="text-xs font-semibold ${barColor.replace('bg-', 'text-')}">${count} (${percentage}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-lg overflow-hidden">
+                            <div class="progress-bar ${barColor}" style="width: ${percentage}%">${percentage}%</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
-    }, (error) => {
-        console.error("Error al escuchar los registros:", error);
-        displayMessage(`Error al cargar registros: ${error.message}. Revisa la consola.`, false);
-    });
-}
-
-function getVehicleBadge(vehicle) {
-    let color = 'bg-gray-200 text-gray-800';
-    if (vehicle === 'Moto') color = 'bg-red-100 text-red-700';
-    else if (vehicle === 'Bicicleta' || vehicle === 'Peatón') color = 'bg-yellow-100 text-yellow-700';
-    else if (vehicle === 'Camión') color = 'bg-blue-100 text-blue-700';
-    else if (vehicle === 'Camioneta') color = 'bg-purple-100 text-purple-700';
-    else if (vehicle === 'Auto') color = 'bg-green-100 text-green-700';
-
-    return `<span class="badge ${color}">${vehicle}</span>`;
-}
-
-function renderRecords(records) {
-    recordsList.innerHTML = '';
-
-    if (records.length === 0) {
-        emptyState.classList.remove('hidden');
-        return;
-    }
-    emptyState.classList.add('hidden');
-
-    records.forEach(record => {
-        const date = record.fecha ? new Date(record.fecha).toLocaleString('es-AR') : 'Fecha no especificada';
-        const vehicleBadges = (record.vehicles_involved || []).map(getVehicleBadge).join('');
-
-        let severityColor = 'text-green-600';
-        if (record.gravedad === 'Lesiones Leves') severityColor = 'text-yellow-600';
-        else if (record.gravedad === 'Lesiones Graves') severityColor = 'text-orange-600';
-        else if (record.gravedad === 'Fatal') severityColor = 'text-red-600';
-
-        let viaHighlightClass = 'text-gray-700 font-normal';
-        let recordWrapperClass = 'bg-gray-50 p-4 rounded-lg border border-gray-200';
-
-        if (record.tipo_via && record.tipo_via.includes('CON Boulevard')) {
-            viaHighlightClass = 'bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-xs';
-            recordWrapperClass = 'bg-red-50 p-4 rounded-lg border-2 border-red-400 shadow-lg';
-        }
-
-        const element = document.createElement('div');
-        element.className = recordWrapperClass;
-
-        element.innerHTML = `
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 mb-2">
-                <span class="text-sm text-gray-400 font-medium">${date}</span>
-                <span class="font-bold text-lg text-gray-800">${record.ubicacion}</span>
-            </div>
-            
-            <div class="grid grid-cols-2 text-sm gap-2">
-                <p><strong>Tipo de Siniestro:</strong> ${record.tipo}</p>
-                <p><strong>Total Vehículos:</strong> ${record.vehiculos_total || 0}</p>
-                <p><strong>Gravedad:</strong> <span class="${severityColor} font-semibold">${record.gravedad}</span></p>
-                <p><strong>Vía:</strong> <span class="${viaHighlightClass}">${record.tipo_via}</span></p>
-            </div>
-            
-            <div class="mt-3 border-t pt-2">
-                <p class="text-xs font-semibold text-gray-500 mb-1">Vehículos Implicados:</p>
-                <div class="flex flex-wrap">${vehicleBadges}</div>
-            </div>
-
-            ${record.descripcion ? `<p class="mt-3 text-gray-600 italic text-sm border-t pt-2 mt-2">${record.descripcion}</p>` : ''}
-        `;
-        recordsList.appendChild(element);
-    });
-}
-
-function renderStatistics(records) {
-    const total = records.length;
-    statsLoading.classList.add('hidden');
-
-    if (total === 0) {
-        statsLoading.textContent = "No hay suficientes registros para generar estadísticas.";
-        statsLoading.classList.remove('hidden');
-        statsViaSection.classList.add('hidden');
-        statsGravedadSection.classList.add('hidden');
-        statsVehiculosSection.classList.add('hidden');
-        return;
     }
 
-    statsViaSection.classList.remove('hidden');
-    statsGravedadSection.classList.remove('hidden');
-    statsVehiculosSection.classList.remove('hidden');
+    setInitialDateTime() {
+        if (!this.fechaInput) return;
 
-    const viaCounts = records.reduce((acc, record) => {
-        const key = record.tipo_via || 'Desconocido';
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-    }, {});
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        this.fechaInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
 
-    chartVia.innerHTML = Object.entries(viaCounts).map(([via, count]) => {
-        const percentage = ((count / total) * 100).toFixed(1);
-        let barColor = 'bg-teal-500';
-        if (via.includes('CON Boulevard')) {
-            barColor = 'bg-red-600';
-        }
-
-        return `
-            <div class="relative w-full">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-sm font-medium text-gray-800">${via}</span>
-                    <span class="text-xs font-semibold ${barColor.replace('bg-', 'text-')}">${count} (${percentage}%)</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-lg overflow-hidden">
-                    <div class="progress-bar ${barColor}" style="width: ${percentage}%"></div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    const gravedadOrder = ['Fatal', 'Lesiones Graves', 'Lesiones Leves', 'Sin Lesiones'];
-    const gravedadCounts = records.reduce((acc, record) => {
-        const key = record.gravedad || 'Desconocido';
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-    }, {});
-
-    const sortedGravedades = Object.entries(gravedadCounts).sort(([a], [b]) => gravedadOrder.indexOf(a) - gravedadOrder.indexOf(b));
-
-    chartGravedad.innerHTML = sortedGravedades.map(([gravedad, count]) => {
-        const percentage = ((count / total) * 100).toFixed(1);
-        let barColor = 'bg-gray-400';
-        if (gravedad === 'Fatal') barColor = 'bg-red-800';
-        else if (gravedad === 'Lesiones Graves') barColor = 'bg-orange-600';
-        else if (gravedad === 'Lesiones Leves') barColor = 'bg-yellow-500';
-        else if (gravedad === 'Sin Lesiones') barColor = 'bg-green-600';
-
-        return `
-            <div class="relative w-full">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-sm font-medium text-gray-800">${gravedad}</span>
-                    <span class="text-xs font-semibold ${barColor.replace('bg-', 'text-')}">${count} (${percentage}%)</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-lg overflow-hidden">
-                    <div class="progress-bar ${barColor}" style="width: ${percentage}%"></div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    const vehicleCounts = {};
-    records.forEach(record => {
-        (record.vehicles_involved || []).forEach(vehicle => {
-            vehicleCounts[vehicle] = (vehicleCounts[vehicle] || 0) + 1;
-        });
-    });
-
-    const totalInvolvements = Object.values(vehicleCounts).reduce((sum, count) => sum + count, 0);
-
-    const sortedVehicles = Object.entries(vehicleCounts).sort(([, a], [, b]) => b - a);
-
-    chartVehiculos.innerHTML = sortedVehicles.map(([vehicle, count]) => {
-        const percentage = ((count / totalInvolvements) * 100).toFixed(1);
-        let barColor = 'bg-gray-500';
-        if (vehicle === 'Moto') barColor = 'bg-red-600';
-        else if (vehicle === 'Bicicleta' || vehicle === 'Peatón') barColor = 'bg-yellow-600';
-        else if (vehicle === 'Camión') barColor = 'bg-blue-600';
-        else if (vehicle === 'Camioneta') barColor = 'bg-purple-600';
-        else if (vehicle === 'Auto') barColor = 'bg-green-600';
-
-        return `
-            <div class="relative w-full">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-sm font-medium text-gray-800">${vehicle}</span>
-                    <span class="text-xs font-semibold ${barColor.replace('bg-', 'text-')}">${count} Implicaciones (${percentage}%)</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-lg overflow-hidden">
-                    <div class="progress-bar ${barColor}" style="width: ${percentage}%">${vehicle}</div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function setInitialDateTime() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    fechaInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    init() {
+        this.setInitialDateTime();
+        this.initializeFirebase();
+    }
 }
 
 window.onload = function () {
-    setInitialDateTime();
-    initializeFirebase();
+    const app = new SiniestrosApp();
+    app.init();
 };

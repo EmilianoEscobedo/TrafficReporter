@@ -3,167 +3,305 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro y Análisis de Siniestros Viales</title>
+    <title>Registro de Siniestros Viales</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f766e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Registro de Siniestros Viales">
+    <link rel="apple-touch-icon" href="assets/icon-192x192.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="styles/styles.css">
 </head>
 <body>
-<div class="min-h-screen p-4 sm:p-8">
-    <header class="mb-8 text-center">
-        <h1 class="text-4xl font-extrabold text-gray-900">Sistema de Análisis de Siniestros Viales</h1>
-        <p class="mt-2 text-lg text-gray-500">Herramienta de recolección y análisis para periodismo de impacto.</p>
-    </header>
-
-    <main class="max-w-6xl mx-auto">
-        <div id="stats-container" class="bg-white card rounded-xl p-5 mb-6 shadow-md border-t-4 border-teal-500">
-            <div class="flex flex-col sm:flex-row justify-between items-center mb-4">
-                <div class="text-2xl font-bold text-teal-600">
-                    Total de Accidentes Registrados: <span id="accident-count" class="text-4xl ml-2">0</span>
-                </div>
-                <div class="text-sm text-gray-500 mt-2 sm:mt-0">
-                    ID de Usuario: <span id="user-id" class="font-mono text-gray-700 break-all">Cargando...</span>
-                </div>
+<div class="min-h-screen pb-16">
+    <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8">
+            <div class="text-center">
+                <img src="assets/logo.png" alt="Logo" class="mx-auto h-16 w-auto mb-4">
+                <h2 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
+                    Sistema de Análisis de Siniestros Viales
+                </h2>
             </div>
-        </div>
-
-        <div class="flex border-b border-gray-200 mb-6">
-            <button onclick="showTab('registro')" id="tab-registro" class="py-3 px-6 text-lg font-medium border-b-2 border-teal-500 text-teal-600 focus:outline-none transition duration-150">Registro de Datos</button>
-            <button onclick="showTab('estadisticas')" id="tab-estadisticas" class="py-3 px-6 text-lg font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none transition duration-150">Estadísticas Clave</button>
-        </div>
-
-        <div id="content-registro" class="space-y-8">
-            <div id="form-container" class="bg-white card rounded-xl p-6">
-                <h2 class="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Registrar Nuevo Accidente</h2>
-                <form id="accident-form">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div>
-                            <label for="fecha" class="block text-sm font-medium text-gray-700">Fecha y Hora</label>
-                            <input type="datetime-local" id="fecha" name="fecha" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-teal-500 focus:border-teal-500">
-                        </div>
-                        <div>
-                            <label for="ubicacion" class="block text-sm font-medium text-gray-700">Ubicación / Calle Principal</label>
-                            <input type="text" id="ubicacion" name="ubicacion" placeholder="Ej: Av. Central y Calle 5" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-teal-500 focus:border-teal-500">
-                        </div>
-                        <div>
-                            <label for="tipo_via" class="block text-sm font-medium text-gray-700">Tipo de Vía</label>
-                            <select id="tipo_via" name="tipo_via" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-teal-500 focus:border-teal-500">
-                                <option value="">Seleccione...</option>
-                                <option value="Calle/Pasaje simple">Calle/Pasaje simple</option>
-                                <option value="Avenida SIN Boulevard">Avenida SIN Boulevard</option>
-                                <option value="Avenida CON Boulevard (Alto Riesgo)">Avenida CON Boulevard (Alto Riesgo)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div>
-                            <label for="tipo" class="block text-sm font-medium text-gray-700">Tipo de Siniestro</label>
-                            <select type="text" id="tipo" name="tipo" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-teal-500 focus:border-teal-500">
-                                <option value="">Seleccione...</option>
-                                <option value="Colisión Lateral">Colisión Lateral</option>
-                                <option value="Colisión Frontal">Colisión Frontal</option>
-                                <option value="Atropello Peatón">Atropello Peatón</option>
-                                <option value="Vuelco">Vuelco</option>
-                                <option value="Choque Objeto Fijo">Choque contra Objeto Fijo</option>
-                                <option value="Otro">Otro</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="gravedad" class="block text-sm font-medium text-gray-700">Gravedad</label>
-                            <select id="gravedad" name="gravedad" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-teal-500 focus:border-teal-500">
-                                <option value="">Seleccione...</option>
-                                <option value="Sin Lesiones">Sin Lesiones</option>
-                                <option value="Lesiones Leves">Lesiones Leves</option>
-                                <option value="Lesiones Graves">Lesiones Graves</option>
-                                <option value="Fatal">Fatal</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="vehiculos_total" class="block text-sm font-medium text-gray-700">Total de Vehículos (Cantidad)</label>
-                            <input type="number" id="vehiculos_total" name="vehiculos_total" min="1" value="1" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-teal-500 focus:border-teal-500">
-                        </div>
-                    </div>
-
-                    <div class="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipos de Vehículos Específicos:</label>
-                        <div class="flex flex-wrap gap-4">
-                            <label class="flex items-center text-gray-700 cursor-pointer">
-                                <input type="checkbox" name="vehicles_involved" value="Auto" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
-                                <span class="ml-2 text-sm">Auto</span>
-                            </label>
-                            <label class="flex items-center text-gray-700 cursor-pointer">
-                                <input type="checkbox" name="vehicles_involved" value="Moto" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
-                                <span class="ml-2 text-sm">Moto</span>
-                            </label>
-                            <label class="flex items-center text-gray-700 cursor-pointer">
-                                <input type="checkbox" name="vehicles_involved" value="Camioneta" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
-                                <span class="ml-2 text-sm">Camioneta</span>
-                            </label>
-                            <label class="flex items-center text-gray-700 cursor-pointer">
-                                <input type="checkbox" name="vehicles_involved" value="Camión" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
-                                <span class="ml-2 text-sm">Camión</span>
-                            </label>
-                            <label class="flex items-center text-gray-700 cursor-pointer">
-                                <input type="checkbox" name="vehicles_involved" value="Bicicleta" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
-                                <span class="ml-2 text-sm">Bicicleta</span>
-                            </label>
-                            <label class="flex items-center text-gray-700 cursor-pointer">
-                                <input type="checkbox" name="vehicles_involved" value="Peatón" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
-                                <span class="ml-2 text-sm">Peatón</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="mb-6">
-                        <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción Breve / Notas</label>
-                        <textarea id="descripcion" name="descripcion" rows="3" placeholder="Detalles clave, factores contribuyentes o fuentes..." class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-teal-500 focus:border-teal-500"></textarea>
-                    </div>
-
-                    <button type="submit" id="submit-btn" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 btn-primary">
-                        <span id="submit-text">Registrar Accidente</span>
-                        <div id="loading-spinner" class="hidden w-5 h-5 border-2 border-white rounded-full loading-spinner animate-spin ml-2"></div>
+            <div class="mt-8 space-y-6">
+                <div id="login-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"></div>
+                <div>
+                    <button id="google-signin-btn" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <span id="signin-text">Iniciar Sesión</span>
+                        <div id="signin-spinner" class="hidden w-5 h-5 border-2 border-white rounded-full animate-spin ml-2"></div>
                     </button>
-                    <div id="message-area" class="mt-3 text-center text-sm hidden"></div>
-                </form>
-            </div>
-
-            <div class="bg-white card rounded-xl p-6">
-                <h2 class="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Historial de Registros</h2>
-                <div id="records-list" class="space-y-4">
-                    <p id="empty-state" class="text-center text-gray-500 italic">No hay registros de accidentes aún.</p>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div id="content-estadisticas" class="hidden bg-white card rounded-xl p-6">
-            <h2 class="text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Análisis de Datos Agregados</h2>
-            <div id="statistics-output" class="space-y-8">
-                <div class="text-center text-gray-500 italic" id="stats-loading">Cargando datos o esperando registros...</div>
-
-                <section id="stats-via" class="hidden">
-                    <h3 class="text-xl font-bold text-gray-700 mb-3 border-l-4 border-teal-500 pl-3">1. Frecuencia por Tipo de Vía</h3>
-                    <div id="chart-via" class="space-y-2">
+    <div id="app-screen" class="hidden min-h-screen">
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="px-4 py-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <img src="assets/logo.png" alt="Logo" class="h-8 w-auto">
+                        <div>
+                            <h1 class="text-lg sm:text-xl font-bold text-gray-900">Registro de Siniestros Viales</h1>
+                            <div class="hidden lg:block">
+                                <p class="text-sm text-gray-500">Herramienta de recolección y análisis para periodismo de impacto.</p>
+                            </div>
+                        </div>
                     </div>
-                </section>
 
-                <section id="stats-gravedad" class="hidden">
-                    <h3 class="text-xl font-bold text-gray-700 mb-3 border-l-4 border-teal-500 pl-3">2. Distribución por Gravedad</h3>
-                    <div id="chart-gravedad" class="space-y-2">
+                    <div class="flex items-center space-x-3">
+                        <div class="hidden sm:block text-right">
+                            <p class="text-xs text-gray-600">Conectado como:</p>
+                            <p id="user-email" class="text-xs font-medium text-gray-900 max-w-32 truncate">Cargando...</p>
+                        </div>
+                        <button id="logout-btn" class="p-2 text-red-600 hover:text-red-700 focus:outline-none">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                            </svg>
+                        </button>
                     </div>
-                </section>
+                </div>
 
-                <section id="stats-vehiculos" class="hidden">
-                    <h3 class="text-xl font-bold text-gray-700 mb-3 border-l-4 border-teal-500 pl-3">3. Vehículos más Implicados</h3>
-                    <div id="chart-vehiculos" class="space-y-2">
+                <div class="block sm:hidden mt-2">
+                    <p id="user-email-mobile" class="text-xs text-gray-600 truncate">Cargando...</p>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div id="stats-container" class="bg-white card rounded-xl p-4 sm:p-6 mb-6 shadow-md border-t-4 border-teal-500">
+                <div class="text-xl sm:text-2xl font-bold text-teal-600 text-center">
+                    Accidentes Registrados: <span id="accident-count" class="text-2xl sm:text-4xl ml-1 sm:ml-2">0</span>
+                </div>
+            </div>
+
+            <div class="flex border-b border-gray-200 mb-6 overflow-x-auto">
+                <button onclick="showTab('registro')" id="tab-registro" class="py-2 px-4 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium border-b-2 border-teal-500 text-teal-600 focus:outline-none transition duration-150 whitespace-nowrap">Registro</button>
+                <button onclick="showTab('mapa')" id="tab-mapa" class="py-2 px-4 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none transition duration-150 whitespace-nowrap">Mapa</button>
+                <button onclick="showTab('estadisticas')" id="tab-estadisticas" class="py-2 px-4 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none transition duration-150 whitespace-nowrap">Estadísticas</button>
+            </div>
+
+            <div id="content-registro" class="space-y-6 sm:space-y-8">
+                <div id="form-container" class="bg-white card rounded-xl p-4 sm:p-6">
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Registrar Nuevo Accidente</h2>
+                    <form id="accident-form">
+                        <input type="hidden" id="ubicacion" name="ubicacion" value="">
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha y Hora</label>
+                                <input type="datetime-local" id="fecha" name="fecha" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 text-sm focus:ring-teal-500 focus:border-teal-500">
+                            </div>
+                            <div>
+                                <label for="tipo_via" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Vía</label>
+                                <select id="tipo_via" name="tipo_via" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 text-sm focus:ring-teal-500 focus:border-teal-500">
+                                    <option value="">Seleccione...</option>
+                                    <option value="Calle/Pasaje simple">Calle/Pasaje simple</option>
+                                    <option value="Avenida SIN Boulevard">Avenida SIN Boulevard</option>
+                                    <option value="Avenida CON Boulevard (Alto Riesgo)">Avenida CON Boulevard (Alto Riesgo)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label for="tipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Siniestro</label>
+                                <select id="tipo" name="tipo" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 text-sm focus:ring-teal-500 focus:border-teal-500">
+                                    <option value="">Seleccione...</option>
+                                    <option value="Colisión Lateral">Colisión Lateral</option>
+                                    <option value="Colisión Frontal">Colisión Frontal</option>
+                                    <option value="Atropello Peatón">Atropello Peatón</option>
+                                    <option value="Vuelco">Vuelco</option>
+                                    <option value="Choque Objeto Fijo">Choque contra Objeto Fijo</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="gravedad" class="block text-sm font-medium text-gray-700 mb-1">Gravedad</label>
+                                <select id="gravedad" name="gravedad" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 text-sm focus:ring-teal-500 focus:border-teal-500">
+                                    <option value="">Seleccione...</option>
+                                    <option value="Sin Lesiones">Sin Lesiones</option>
+                                    <option value="Lesiones Leves">Lesiones Leves</option>
+                                    <option value="Lesiones Graves">Lesiones Graves</option>
+                                    <option value="Fatal">Fatal</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="vehiculos_total" class="block text-sm font-medium text-gray-700 mb-1">Total de Vehículos</label>
+                                <input type="number" id="vehiculos_total" name="vehiculos_total" min="1" value="1" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 text-sm focus:ring-teal-500 focus:border-teal-500">
+                            </div>
+                        </div>
+
+                        <div class="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 space-y-2 sm:space-y-0">
+                                <label class="block text-sm font-medium text-blue-800">Seleccione una ubicación en el mapa:</label>
+                                <button type="button" id="locate-me-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs font-medium">
+                                    📍 Mi Ubicación
+                                </button>
+                            </div>
+                            <div id="form-map" class="h-48 sm:h-64 rounded-lg border border-blue-300"></div>
+                            <div class="mt-2 space-y-1">
+                                <div class="text-xs text-blue-600">
+                                    <span id="selected-coords" class="font-mono">Seleccione una ubicación en el mapa</span>
+                                </div>
+                                <div class="text-xs text-gray-600">
+                                    <span id="selected-address" class="italic">La dirección aparecerá aquí cuando seleccione una ubicación</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Tipos de Vehículos Específicos:</label>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                <label class="flex items-center text-gray-700 cursor-pointer">
+                                    <input type="checkbox" name="vehicles_involved" value="Auto" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                                    <span class="ml-2 text-sm">Auto</span>
+                                </label>
+                                <label class="flex items-center text-gray-700 cursor-pointer">
+                                    <input type="checkbox" name="vehicles_involved" value="Moto" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                                    <span class="ml-2 text-sm">Moto</span>
+                                </label>
+                                <label class="flex items-center text-gray-700 cursor-pointer">
+                                    <input type="checkbox" name="vehicles_involved" value="Camioneta" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                                    <span class="ml-2 text-sm">Camioneta</span>
+                                </label>
+                                <label class="flex items-center text-gray-700 cursor-pointer">
+                                    <input type="checkbox" name="vehicles_involved" value="Utilitario" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                                    <span class="ml-2 text-sm">Utilitario</span>
+                                </label>
+                                <label class="flex items-center text-gray-700 cursor-pointer">
+                                    <input type="checkbox" name="vehicles_involved" value="Camión" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                                    <span class="ml-2 text-sm">Camión</span>
+                                </label>
+                                <label class="flex items-center text-gray-700 cursor-pointer">
+                                    <input type="checkbox" name="vehicles_involved" value="Bicicleta" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                                    <span class="ml-2 text-sm">Bicicleta</span>
+                                </label>
+                                <label class="flex items-center text-gray-700 cursor-pointer">
+                                    <input type="checkbox" name="vehicles_involved" value="Peatón" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                                    <span class="ml-2 text-sm">Peatón</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-1">Descripción Breve / Notas</label>
+                            <textarea id="descripcion" name="descripcion" rows="3" placeholder="Detalles clave, factores contribuyentes o fuentes..." class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 text-sm focus:ring-teal-500 focus:border-teal-500"></textarea>
+                        </div>
+
+                        <button type="submit" id="submit-btn" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 btn-primary">
+                            <span id="submit-text">Registrar Accidente</span>
+                            <div id="loading-spinner" class="hidden w-5 h-5 border-2 border-white rounded-full loading-spinner animate-spin ml-2"></div>
+                        </button>
+                        <div id="message-area" class="mt-3 text-center text-sm hidden"></div>
+                    </form>
+                </div>
+
+                <div class="bg-white card rounded-xl p-4 sm:p-6">
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Historial de Registros</h2>
+                    <div id="records-list" class="space-y-4">
+                        <p id="empty-state" class="text-center text-gray-500 italic">No hay registros de accidentes aún.</p>
                     </div>
-                </section>
+                </div>
+            </div>
 
+            <div id="content-mapa" class="hidden">
+                <div class="bg-white card rounded-xl p-4 sm:p-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Mapa de Accidentes</h2>
+                        <div class="flex flex-wrap gap-2">
+                            <button id="show-all-accidents" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded-md text-xs font-medium">
+                                Mostrar Todos
+                            </button>
+                            <button id="show-fatal-accidents" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-xs font-medium">
+                                Solo Fatales
+                            </button>
+                        </div>
+                    </div>
+                    <div id="main-map" class="h-96 sm:h-[500px] lg:h-[600px] rounded-lg border border-gray-300"></div>
+                    <div class="mt-4">
+                        <div class="flex flex-wrap gap-4 text-xs">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
+                                <span>Fatal</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-orange-500 rounded-full mr-2"></div>
+                                <span>Lesiones Graves</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-yellow-500 rounded-full mr-2"></div>
+                                <span>Lesiones Leves</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
+                                <span>Sin Lesiones</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-estadisticas" class="hidden bg-white card rounded-xl p-4 sm:p-6">
+                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Análisis de Datos Agregados</h2>
+                <div id="statistics-output" class="space-y-6 sm:space-y-8">
+                    <div class="text-center text-gray-500 italic" id="stats-loading">Cargando datos o esperando registros...</div>
+
+                    <section id="stats-via" class="hidden">
+                        <h3 class="text-lg sm:text-xl font-bold text-gray-700 mb-3 border-l-4 border-teal-500 pl-3">1. Frecuencia por Tipo de Vía</h3>
+                        <div id="chart-via" class="space-y-2"></div>
+                    </section>
+
+                    <section id="stats-gravedad" class="hidden">
+                        <h3 class="text-lg sm:text-xl font-bold text-gray-700 mb-3 border-l-4 border-teal-500 pl-3">2. Distribución por Gravedad</h3>
+                        <div id="chart-gravedad" class="space-y-2"></div>
+                    </section>
+
+                    <section id="stats-vehiculos" class="hidden">
+                        <h3 class="text-lg sm:text-xl font-bold text-gray-700 mb-3 border-l-4 border-teal-500 pl-3">3. Vehículos más Implicados</h3>
+                        <div id="chart-vehiculos" class="space-y-2"></div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Sticky PWA Install Prompt -->
+<div id="pwa-install-prompt" class="hidden fixed bottom-0 left-0 right-0 bg-blue-600 text-white p-4 shadow-lg z-[9999]">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+        <div class="flex items-center">
+            <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8l-8-8-8 8"/>
+            </svg>
+            <div>
+                <p class="text-sm font-medium">Instalar aplicación</p>
+                <p class="text-xs opacity-90">Acceso rápido en tu pantalla de inicio</p>
             </div>
         </div>
-    </main>
+        <div class="flex space-x-2">
+            <button id="pwa-install-btn" class="bg-white text-blue-600 px-3 py-1 rounded text-sm font-medium">
+                Instalar
+            </button>
+            <button id="pwa-dismiss-btn" class="text-white opacity-75 hover:opacity-100">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
 </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="scripts/config.js"></script>
+<script src="scripts/geocoding.js"></script>
+<script src="scripts/maps.js"></script>
+<script src="scripts/pwa.js"></script>
 <script src="scripts/app.js" type="module"></script>
 </body>
 </html>
