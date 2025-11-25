@@ -262,6 +262,7 @@ function getVehicleBadge(vehicle) {
     else if (vehicle === 'Camión') color = 'bg-blue-100 text-blue-700';
     else if (vehicle === 'Camioneta') color = 'bg-purple-100 text-purple-700';
     else if (vehicle === 'Auto') color = 'bg-green-100 text-green-700';
+    else if (vehicle === 'Utilitario') color = 'bg-orange-100 text-orange-700';
 
     return `<span class="badge ${color}">${vehicle}</span>`;
 }
@@ -411,6 +412,7 @@ function renderStatistics(records) {
         else if (vehicle === 'Camión') barColor = 'bg-blue-600';
         else if (vehicle === 'Camioneta') barColor = 'bg-purple-600';
         else if (vehicle === 'Auto') barColor = 'bg-green-600';
+        else if (vehicle === 'Utilitario') barColor = 'bg-orange-600';
 
         return `
             <div class="relative w-full">
