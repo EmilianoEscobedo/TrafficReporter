@@ -8,9 +8,13 @@ const config = {
         appId: "1:1053463290562:web:53ef7eacef393b5545915b",
         measurementId: "G-F4GVKYPCB7"
     },
-    appId: "transito-9-de-julio"
+    appId: "transito-9-de-julio",
+    allowedEmails: [
+        "emilianoescobedo9@gmail.com",
+        "doeprensa@gmail.com"
+    ]
 };
 
 window.__firebase_config = JSON.stringify(config.firebaseConfig);
 window.__app_id = config.appId;
-window.__initial_auth_token = null;
+window.__allowed_emails = config.allowedEmails;
