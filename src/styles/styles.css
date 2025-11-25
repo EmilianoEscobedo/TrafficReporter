@@ -37,6 +37,9 @@ body {
     color: white;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     transition: width 0.5s ease-out;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 .message-success {
@@ -51,4 +54,76 @@ body {
     color: #991b1b;
     padding: 0.75rem;
     border-radius: 0.5rem;
+}
+
+.accident-popup {
+    min-width: 250px;
+}
+
+.accident-popup h4 {
+    margin: 0 0 8px 0;
+    font-weight: 600;
+    color: #374151;
+    font-size: 14px;
+}
+
+.accident-popup p {
+    margin: 4px 0;
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.accident-popup .severity-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    color: white;
+}
+
+.severity-fatal { background-color: #DC2626; }
+.severity-grave { background-color: #EA580C; }
+.severity-leve { background-color: #D97706; }
+.severity-sin { background-color: #059669; }
+
+@media (max-width: 640px) {
+    .badge {
+        font-size: 0.6rem;
+        padding: 0.125rem 0.5rem;
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .progress-bar {
+        height: 1.25rem;
+        font-size: 0.625rem;
+    }
+
+    .accident-popup {
+        min-width: 200px;
+    }
+
+    .accident-popup h4 {
+        font-size: 13px;
+    }
+
+    .accident-popup p {
+        font-size: 11px;
+    }
+}
+
+/* Map container fixes */
+.leaflet-container {
+    background: #f8fafc;
+}
+
+/* Ensure map controls are accessible on mobile */
+.leaflet-control-zoom {
+    margin-left: 10px !important;
+    margin-top: 10px !important;
+}
+
+.leaflet-control-attribution {
+    font-size: 10px !important;
 }
