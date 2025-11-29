@@ -7,6 +7,11 @@ class MapManager {
         this.defaultLat = -34.6118;
         this.defaultLng = -58.3960;
         this.defaultZoom = 13;
+
+        // Resize observer to fix partial loading/grey tiles
+        this.resizeObserver = new ResizeObserver(() => {
+            this.invalidateSize();
+        });
     }
 
     initializeMaps() {
@@ -38,6 +43,9 @@ class MapManager {
                 // Update marker with address
                 tempMarker.bindPopup(address || '📍 Ubicación seleccionada').openPopup();
             });
+
+            // Observe for size changes
+            this.resizeObserver.observe(formMapElement);
         }
     }
 
@@ -48,6 +56,9 @@ class MapManager {
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(this.mainMap);
+
+            // Observe for size changes
+            this.resizeObserver.observe(mainMapElement);
         }
     }
 
@@ -148,9 +159,6 @@ class MapManager {
             const latlng = { lat, lng };
 
             this.selectedLatLng = latlng;
-
-            // For manual search, we can use the address we searched for or the one returned by API
-            // Using updateSelectedLocation ensures consistency with hidden inputs and labels
             await this.updateSelectedLocation(latlng);
 
             if (this.formMap) {
@@ -326,14 +334,12 @@ class MapManager {
     }
 
     invalidateSize() {
-        setTimeout(() => {
-            if (this.mainMap) {
-                this.mainMap.invalidateSize();
-            }
-            if (this.formMap) {
-                this.formMap.invalidateSize();
-            }
-        }, 100);
+        if (this.mainMap) {
+            this.mainMap.invalidateSize();
+        }
+        if (this.formMap) {
+            this.formMap.invalidateSize();
+        }
     }
 }
 

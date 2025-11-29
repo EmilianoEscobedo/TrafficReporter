@@ -10,6 +10,9 @@ import {
     getFirestore,
     collection,
     addDoc,
+    updateDoc,
+    deleteDoc,
+    doc,
     onSnapshot,
     query,
     orderBy,
@@ -26,7 +29,12 @@ class SiniestrosApp {
         this.auth = null;
         this.currentUser = null;
         this.isAuthReady = false;
+
         this.allAccidentRecords = [];
+        this.filteredRecords = [];
+
+        this.editingRecordId = null; // Track which record is being edited
+        this.dateFilter = { start: null, end: null };
 
         this.mapManager = new window.MapManager();
         this.pwaManager = new window.PWAManager();
@@ -47,6 +55,9 @@ class SiniestrosApp {
         this.userEmailMobile = document.getElementById('user-email-mobile');
 
         this.form = document.getElementById('accident-form');
+        this.formTitle = document.getElementById('form-title');
+        this.cancelEditBtn = document.getElementById('cancel-edit-btn');
+
         this.recordsList = document.getElementById('records-list');
         this.accidentCount = document.getElementById('accident-count');
         this.emptyState = document.getElementById('empty-state');
@@ -72,6 +83,13 @@ class SiniestrosApp {
         this.manualAddressInput = document.getElementById('manual-address');
         this.exportCsvBtn = document.getElementById('export-csv-btn');
         this.exportPdfBtn = document.getElementById('export-pdf-btn');
+        this.shareMapBtn = document.getElementById('share-map-btn');
+
+        // Filter elements
+        this.dateFiltersDiv = document.getElementById('date-filters');
+        this.filterStartDate = document.getElementById('filter-start-date');
+        this.filterEndDate = document.getElementById('filter-end-date');
+        this.clearFiltersBtn = document.getElementById('clear-filters-btn');
     }
 
     attachEventListeners() {
@@ -83,6 +101,9 @@ class SiniestrosApp {
         }
         if (this.form) {
             this.form.addEventListener('submit', (e) => this.handleFormSubmit(e));
+        }
+        if (this.cancelEditBtn) {
+            this.cancelEditBtn.addEventListener('click', () => this.cancelEditing());
         }
         if (this.locateMeBtn) {
             this.locateMeBtn.addEventListener('click', () => this.mapManager.getCurrentLocation());
@@ -102,10 +123,28 @@ class SiniestrosApp {
         if (this.exportPdfBtn) {
             this.exportPdfBtn.addEventListener('click', () => this.exportToPDF());
         }
+        if (this.shareMapBtn) {
+            this.shareMapBtn.addEventListener('click', () => this.shareMap());
+        }
+
+        // Filter events
+        if (this.filterStartDate) {
+            this.filterStartDate.addEventListener('change', () => this.applyDateFilter());
+        }
+        if (this.filterEndDate) {
+            this.filterEndDate.addEventListener('change', () => this.applyDateFilter());
+        }
+        if (this.clearFiltersBtn) {
+            this.clearFiltersBtn.addEventListener('click', () => this.clearFilters());
+        }
 
         window.showTab = (tabName) => this.showTab(tabName);
         window.showRecordOnMap = (lat, lng, ubicacion) => this.mapManager.showRecordOnMap(lat, lng, ubicacion);
         window.displayMessage = (text, isSuccess) => this.displayMessage(text, isSuccess);
+
+        // Exposed for inline onClick handlers
+        window.handleEditRecord = (id) => this.handleEditRecord(id);
+        window.handleDeleteRecord = (id) => this.handleDeleteRecord(id);
     }
 
     getEnvironmentVars() {
@@ -195,8 +234,15 @@ class SiniestrosApp {
             activeTab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
         }
 
+        // Show filter section only for Registro and Estadisticas
+        if (tabName === 'registro' || tabName === 'estadisticas') {
+            this.dateFiltersDiv?.classList.remove('hidden');
+        } else {
+            this.dateFiltersDiv?.classList.add('hidden');
+        }
+
         if (tabName === 'estadisticas') {
-            this.renderStatistics(this.allAccidentRecords);
+            this.renderStatistics(this.filteredRecords);
         } else if (tabName === 'mapa') {
             setTimeout(() => {
                 this.mapManager.invalidateSize();
@@ -310,6 +356,104 @@ class SiniestrosApp {
         return Array.from(checkboxes).map(cb => cb.value);
     }
 
+    // --- Editing & Deleting ---
+
+    async handleDeleteRecord(id) {
+        if (!confirm('¿Estás seguro de que quieres eliminar este registro? Esta acción no se puede deshacer.')) {
+            return;
+        }
+
+        try {
+            await deleteDoc(doc(this.db, 'shared_accident_reports', id));
+            this.displayMessage("Registro eliminado correctamente.", true);
+
+            // If we were editing this record, cancel the edit
+            if (this.editingRecordId === id) {
+                this.cancelEditing();
+            }
+
+        } catch (error) {
+            console.error("Error removing record:", error);
+            this.displayMessage(`Error al eliminar: ${error.message}`, false);
+        }
+    }
+
+    handleEditRecord(id) {
+        const record = this.allAccidentRecords.find(r => r.id === id);
+        if (!record) return;
+
+        this.editingRecordId = id;
+
+        // Update UI for Edit Mode
+        if (this.formTitle) this.formTitle.textContent = "Editar Accidente";
+        if (this.submitText) this.submitText.textContent = "Actualizar Registro";
+        if (this.submitBtn) {
+            this.submitBtn.classList.remove('bg-teal-600', 'hover:bg-teal-700');
+            this.submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        }
+        if (this.cancelEditBtn) this.cancelEditBtn.classList.remove('hidden');
+
+        // Populate Form
+        if (this.fechaInput) this.fechaInput.value = record.fecha;
+
+        const tipoViaSelect = document.getElementById('tipo_via');
+        if (tipoViaSelect) tipoViaSelect.value = record.tipo_via;
+
+        const tipoSelect = document.getElementById('tipo');
+        if (tipoSelect) tipoSelect.value = record.tipo;
+
+        const gravedadSelect = document.getElementById('gravedad');
+        if (gravedadSelect) gravedadSelect.value = record.gravedad;
+
+        const vehiculosInput = document.getElementById('vehiculos_total');
+        if (vehiculosInput) vehiculosInput.value = record.vehiculos_total;
+
+        const descripcionInput = document.getElementById('descripcion');
+        if (descripcionInput) descripcionInput.value = record.descripcion || '';
+
+        // Checkboxes
+        document.querySelectorAll('input[name="vehicles_involved"]').forEach(cb => {
+            cb.checked = record.vehicles_involved ? record.vehicles_involved.includes(cb.value) : false;
+        });
+
+        // Map Location
+        this.mapManager.selectedLatLng = { lat: record.latitude, lng: record.longitude };
+        this.mapManager.updateSelectedLocation(this.mapManager.selectedLatLng); // Show address
+
+        // Setup Map Marker for edit
+        if (this.mapManager.formMap) {
+            this.mapManager.formMap.eachLayer(layer => {
+                if (layer instanceof L.Marker) {
+                    this.mapManager.formMap.removeLayer(layer);
+                }
+            });
+            this.mapManager.formMap.setView([record.latitude, record.longitude], 16);
+            L.marker([record.latitude, record.longitude])
+                .addTo(this.mapManager.formMap)
+                .bindPopup('📍 Ubicación guardada')
+                .openPopup();
+        }
+
+        // Scroll to form
+        document.getElementById('form-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    cancelEditing() {
+        this.editingRecordId = null;
+        this.form.reset();
+        this.setInitialDateTime();
+        this.mapManager.resetFormMap();
+
+        // Reset UI
+        if (this.formTitle) this.formTitle.textContent = "Registrar Nuevo Accidente";
+        if (this.submitText) this.submitText.textContent = "Registrar Accidente";
+        if (this.submitBtn) {
+            this.submitBtn.classList.add('bg-teal-600', 'hover:bg-teal-700');
+            this.submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        }
+        if (this.cancelEditBtn) this.cancelEditBtn.classList.add('hidden');
+    }
+
     async handleFormSubmit(e) {
         e.preventDefault();
 
@@ -350,43 +494,116 @@ class SiniestrosApp {
             descripcion: formData.get('descripcion'),
             latitude: this.mapManager.selectedLatLng.lat,
             longitude: this.mapManager.selectedLatLng.lng,
-            createdAt: serverTimestamp(),
-            recordedBy: this.currentUser.email,
-            recordedByUid: this.currentUser.uid
         };
 
-        this.submitText.textContent = 'Guardando...';
+        if (this.editingRecordId) {
+            // Update existing record
+            data.updatedAt = serverTimestamp();
+            data.updatedBy = this.currentUser.email;
+        } else {
+            // New record
+            data.createdAt = serverTimestamp();
+            data.recordedBy = this.currentUser.email;
+            data.recordedByUid = this.currentUser.uid;
+        }
+
+        this.submitText.textContent = this.editingRecordId ? 'Actualizando...' : 'Guardando...';
         this.loadingSpinner?.classList.remove('hidden');
         if (this.submitBtn) this.submitBtn.disabled = true;
 
         try {
-            await addDoc(collection(this.db, 'shared_accident_reports'), data);
-
-            this.form.reset();
-            this.setInitialDateTime();
-            document.querySelectorAll('input[name="vehicles_involved"]:checked').forEach(cb => cb.checked = false);
-            this.mapManager.resetFormMap();
-            this.displayMessage("Registro exitoso. Nuevo accidente guardado.", true);
+            if (this.editingRecordId) {
+                await updateDoc(doc(this.db, 'shared_accident_reports', this.editingRecordId), data);
+                this.displayMessage("Registro actualizado correctamente.", true);
+                this.cancelEditing(); // Exit edit mode
+            } else {
+                await addDoc(collection(this.db, 'shared_accident_reports'), data);
+                this.form.reset();
+                this.setInitialDateTime();
+                document.querySelectorAll('input[name="vehicles_involved"]:checked').forEach(cb => cb.checked = false);
+                this.mapManager.resetFormMap();
+                this.displayMessage("Registro exitoso. Nuevo accidente guardado.", true);
+            }
 
         } catch (error) {
             console.error("Error saving record:", error);
             this.displayMessage(`Error al guardar: ${error.message}`, false);
         } finally {
-            this.submitText.textContent = 'Registrar Accidente';
+            this.submitText.textContent = this.editingRecordId ? 'Actualizar Registro' : 'Registrar Accidente';
             this.loadingSpinner?.classList.add('hidden');
             if (this.submitBtn) this.submitBtn.disabled = false;
         }
     }
 
+    // --- Filtering ---
+
+    applyDateFilter() {
+        const start = this.filterStartDate.value ? new Date(this.filterStartDate.value) : null;
+        const end = this.filterEndDate.value ? new Date(this.filterEndDate.value) : null;
+
+        // Adjust end date to include the whole day
+        if (end) {
+            end.setHours(23, 59, 59, 999);
+        }
+
+        this.filteredRecords = this.allAccidentRecords.filter(record => {
+            if (!record.fecha) return false;
+            const recordDate = new Date(record.fecha);
+
+            if (start && recordDate < start) return false;
+            if (end && recordDate > end) return false;
+
+            return true;
+        });
+
+        // Update UI
+        this.renderRecords(this.filteredRecords);
+        this.renderStatistics(this.filteredRecords);
+    }
+
+    clearFilters() {
+        this.filterStartDate.value = '';
+        this.filterEndDate.value = '';
+        this.filteredRecords = [...this.allAccidentRecords];
+        this.renderRecords(this.filteredRecords);
+        this.renderStatistics(this.filteredRecords);
+    }
+
+    // --- Sharing ---
+
+    async shareMap() {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Mapa de Siniestros Viales',
+                    text: 'Mira el mapa de siniestros viales registrados en 9 de Julio.',
+                    url: window.location.href
+                });
+            } catch (err) {
+                console.log('Error sharing:', err);
+            }
+        } else {
+            // Fallback: Copy to clipboard
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                this.displayMessage('Enlace copiado al portapapeles', true);
+            } catch (err) {
+                this.displayMessage('No se pudo compartir', false);
+            }
+        }
+    }
+
+    // --- Exports ---
+
     exportToCSV() {
-        if (this.allAccidentRecords.length === 0) {
-            this.displayMessage("No hay datos para exportar.", false);
+        if (this.filteredRecords.length === 0) {
+            this.displayMessage("No hay datos para exportar con el filtro actual.", false);
             return;
         }
 
         const headers = ["Fecha", "Ubicación", "Tipo de Siniestro", "Gravedad", "Tipo de Vía", "Total Vehículos", "Vehículos Involucrados", "Descripción", "Registrado Por"];
 
-        const rows = this.allAccidentRecords.map(record => {
+        const rows = this.filteredRecords.map(record => {
             const date = record.fecha ? new Date(record.fecha).toLocaleString('es-AR') : 'N/A';
             const vehicles = (record.vehicles_involved || []).join('; ');
             const description = (record.descripcion || '').replace(/(\r\n|\n|\r)/gm, " ");
@@ -408,7 +625,7 @@ class SiniestrosApp {
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `siniestros_${new Date().toISOString().slice(0,10)}.csv`);
+        link.setAttribute("download", `siniestros_filtrados_${new Date().toISOString().slice(0,10)}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -416,20 +633,19 @@ class SiniestrosApp {
 
     exportToPDF() {
         const element = document.getElementById('statistics-output');
-        if (!element || this.allAccidentRecords.length === 0) {
-            this.displayMessage("No hay estadísticas para exportar.", false);
+        if (!element || this.filteredRecords.length === 0) {
+            this.displayMessage("No hay estadísticas para exportar con el filtro actual.", false);
             return;
         }
 
         const opt = {
             margin:       0.5,
-            filename:     `estadisticas_${new Date().toISOString().slice(0,10)}.pdf`,
+            filename:     `estadisticas_filtradas_${new Date().toISOString().slice(0,10)}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
             html2canvas:  { scale: 2 },
             jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
         };
 
-        // Temporarily show all sections to ensure they are captured
         const hiddenSections = [];
         ['stats-via', 'stats-gravedad', 'stats-vehiculos'].forEach(id => {
             const el = document.getElementById(id);
@@ -440,7 +656,6 @@ class SiniestrosApp {
         });
 
         html2pdf().set(opt).from(element).save().then(() => {
-            // Restore hidden state if needed
             hiddenSections.forEach(el => el.classList.add('hidden'));
         }).catch(err => {
             console.error("Error exporting PDF:", err);
@@ -463,17 +678,15 @@ class SiniestrosApp {
             });
 
             this.allAccidentRecords = records;
-            this.renderRecords(records);
+
+            // Re-apply current filter
+            this.applyDateFilter();
 
             if (this.accidentCount) {
                 this.accidentCount.textContent = records.length;
             }
 
             this.mapManager.loadAccidentMarkers(records);
-
-            if (!document.getElementById('content-estadisticas')?.classList.contains('hidden')) {
-                this.renderStatistics(records);
-            }
         }, (error) => {
             console.error("Error loading records:", error);
             this.displayMessage(`Error al cargar registros: ${error.message}`, false);
@@ -524,16 +737,35 @@ class SiniestrosApp {
             const element = document.createElement('div');
             element.className = recordWrapperClass;
 
+            // Check if current user is the owner of the record (optional, but good practice)
+            // For now, allow edit if authenticated as the app requirements seem to imply open trust or shared account
+            const isOwner = this.currentUser && (record.recordedByUid === this.currentUser.uid || !record.recordedByUid);
+
+            const actionButtons = `
+                <div class="flex space-x-2 mt-1 sm:mt-0">
+                    <button onclick="handleEditRecord('${record.id}')" class="text-blue-600 hover:text-blue-800 p-1" title="Editar">
+                        ✏️
+                    </button>
+                    <button onclick="handleDeleteRecord('${record.id}')" class="text-red-600 hover:text-red-800 p-1" title="Eliminar">
+                        🗑️
+                    </button>
+                </div>
+            `;
+
             const showLocationBtn = record.latitude && record.longitude ?
                 `<button onclick="showRecordOnMap(${record.latitude}, ${record.longitude}, '${record.ubicacion}')" class="text-blue-600 hover:text-blue-800 text-xs font-medium">📍 Ver en Mapa</button>` : '';
 
             element.innerHTML = `
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 mb-2 space-y-1 sm:space-y-0">
-                    <span class="text-xs sm:text-sm text-gray-400 font-medium">${date}</span>
+                    <div class="flex justify-between w-full sm:w-auto items-center">
+                        <span class="text-xs sm:text-sm text-gray-400 font-medium mr-2">${date}</span>
+                        <div class="sm:hidden">${actionButtons}</div>
+                    </div>
                     <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-2">
                         <span class="font-bold text-base sm:text-lg text-gray-800">${record.ubicacion}</span>
                         ${showLocationBtn}
                     </div>
+                     <div class="hidden sm:block">${actionButtons}</div>
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 text-xs sm:text-sm gap-2">
@@ -563,7 +795,7 @@ class SiniestrosApp {
         this.statsLoading?.classList.add('hidden');
 
         if (total === 0) {
-            if (this.statsLoading) this.statsLoading.textContent = "No hay suficientes registros para generar estadísticas.";
+            if (this.statsLoading) this.statsLoading.textContent = "No hay registros en el rango de fechas seleccionado.";
             this.statsLoading?.classList.remove('hidden');
             this.statsViaSection?.classList.add('hidden');
             this.statsGravedadSection?.classList.add('hidden');
