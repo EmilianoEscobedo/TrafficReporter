@@ -24,18 +24,19 @@ class MapManager {
 
             this.formMap.on('click', async (e) => {
                 this.selectedLatLng = e.latlng;
-                await this.updateSelectedLocation(e.latlng);
 
+                // Show temporary marker while loading
                 this.formMap.eachLayer(layer => {
                     if (layer instanceof L.Marker) {
                         this.formMap.removeLayer(layer);
                     }
                 });
 
-                L.marker([e.latlng.lat, e.latlng.lng])
-                    .addTo(this.formMap)
-                    .bindPopup('📍 Ubicación seleccionada')
-                    .openPopup();
+                const tempMarker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(this.formMap);
+                const address = await this.updateSelectedLocation(e.latlng);
+
+                // Update marker with address
+                tempMarker.bindPopup(address || '📍 Ubicación seleccionada').openPopup();
             });
         }
     }
@@ -54,6 +55,7 @@ class MapManager {
         const coordsSpan = document.getElementById('selected-coords');
         const addressSpan = document.getElementById('selected-address');
         const hiddenLocationInput = document.getElementById('ubicacion');
+        let addressResult = '';
 
         if (coordsSpan) {
             coordsSpan.textContent = `Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}`;
@@ -66,6 +68,7 @@ class MapManager {
 
         try {
             const address = await window.GeocodingService.reverseGeocode(latlng.lat, latlng.lng);
+            addressResult = address;
 
             if (hiddenLocationInput) {
                 hiddenLocationInput.value = address;
@@ -80,6 +83,7 @@ class MapManager {
         } catch (error) {
             console.warn('Could not get address:', error);
             const fallbackAddress = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+            addressResult = fallbackAddress;
 
             if (hiddenLocationInput) {
                 hiddenLocationInput.value = fallbackAddress;
@@ -90,6 +94,7 @@ class MapManager {
                 addressSpan.className = 'italic text-orange-600';
             }
         }
+        return addressResult;
     }
 
     async getCurrentLocation() {
@@ -104,7 +109,7 @@ class MapManager {
                 const lng = position.coords.longitude;
 
                 this.selectedLatLng = { lat, lng };
-                await this.updateSelectedLocation({ lat, lng });
+                const address = await this.updateSelectedLocation({ lat, lng });
 
                 if (this.formMap) {
                     this.formMap.setView([lat, lng], 16);
@@ -117,7 +122,7 @@ class MapManager {
 
                     L.marker([lat, lng])
                         .addTo(this.formMap)
-                        .bindPopup('📍 Tu ubicación')
+                        .bindPopup(address || '📍 Tu ubicación')
                         .openPopup();
                 }
             } catch (error) {
@@ -133,6 +138,38 @@ class MapManager {
                 window.displayMessage('La geolocalización no está soportada en este navegador.', false);
             }
         }
+    }
+
+    async searchLocation(query) {
+        const result = await window.GeocodingService.forwardGeocode(query);
+        if (result) {
+            const lat = parseFloat(result.lat);
+            const lng = parseFloat(result.lon);
+            const latlng = { lat, lng };
+
+            this.selectedLatLng = latlng;
+
+            // For manual search, we can use the address we searched for or the one returned by API
+            // Using updateSelectedLocation ensures consistency with hidden inputs and labels
+            await this.updateSelectedLocation(latlng);
+
+            if (this.formMap) {
+                this.formMap.setView([lat, lng], 16);
+
+                this.formMap.eachLayer(layer => {
+                    if (layer instanceof L.Marker) {
+                        this.formMap.removeLayer(layer);
+                    }
+                });
+
+                L.marker([lat, lng])
+                    .addTo(this.formMap)
+                    .bindPopup(result.display_name || '📍 Ubicación buscada')
+                    .openPopup();
+            }
+            return true;
+        }
+        return false;
     }
 
     getCurrentPositionPromise() {
@@ -260,6 +297,7 @@ class MapManager {
         const coordsSpan = document.getElementById('selected-coords');
         const addressSpan = document.getElementById('selected-address');
         const hiddenLocationInput = document.getElementById('ubicacion');
+        const manualInput = document.getElementById('manual-address');
 
         if (coordsSpan) {
             coordsSpan.textContent = 'Seleccione una ubicación en el mapa';
@@ -272,6 +310,10 @@ class MapManager {
 
         if (hiddenLocationInput) {
             hiddenLocationInput.value = '';
+        }
+
+        if (manualInput) {
+            manualInput.value = '';
         }
 
         if (this.formMap) {

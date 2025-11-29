@@ -53,6 +53,29 @@ class GeocodingService {
             return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
         }
     }
+
+    static async forwardGeocode(query) {
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
+                {
+                    headers: {
+                        'User-Agent': 'SiniestrosVialesApp/1.0'
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.length > 0 ? data[0] : null;
+        } catch (error) {
+            console.warn('Forward geocoding failed:', error);
+            return null;
+        }
+    }
 }
 
 window.GeocodingService = GeocodingService;
