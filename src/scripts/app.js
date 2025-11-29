@@ -67,6 +67,11 @@ class SiniestrosApp {
         this.locateMeBtn = document.getElementById('locate-me-btn');
         this.showAllAccidentsBtn = document.getElementById('show-all-accidents');
         this.showFatalAccidentsBtn = document.getElementById('show-fatal-accidents');
+
+        this.searchAddressBtn = document.getElementById('search-address-btn');
+        this.manualAddressInput = document.getElementById('manual-address');
+        this.exportCsvBtn = document.getElementById('export-csv-btn');
+        this.exportPdfBtn = document.getElementById('export-pdf-btn');
     }
 
     attachEventListeners() {
@@ -87,6 +92,15 @@ class SiniestrosApp {
         }
         if (this.showFatalAccidentsBtn) {
             this.showFatalAccidentsBtn.addEventListener('click', () => this.mapManager.filterAccidentMarkers(true));
+        }
+        if (this.searchAddressBtn) {
+            this.searchAddressBtn.addEventListener('click', () => this.handleManualAddressSearch());
+        }
+        if (this.exportCsvBtn) {
+            this.exportCsvBtn.addEventListener('click', () => this.exportToCSV());
+        }
+        if (this.exportPdfBtn) {
+            this.exportPdfBtn.addEventListener('click', () => this.exportToPDF());
         }
 
         window.showTab = (tabName) => this.showTab(tabName);
@@ -261,6 +275,36 @@ class SiniestrosApp {
         }
     }
 
+    async handleManualAddressSearch() {
+        const input = this.manualAddressInput?.value;
+        if (!input || input.trim() === '') {
+            this.displayMessage('Por favor ingresa una dirección.', false);
+            return;
+        }
+
+        if (this.searchAddressBtn) {
+            this.searchAddressBtn.textContent = 'Buscando...';
+            this.searchAddressBtn.disabled = true;
+        }
+
+        const query = `${input}, 9 de Julio, Buenos Aires, Argentina`;
+
+        try {
+            const found = await this.mapManager.searchLocation(query);
+            if (!found) {
+                this.displayMessage('No se pudo encontrar la dirección.', false);
+            }
+        } catch (error) {
+            console.error('Error searching address:', error);
+            this.displayMessage('Error al buscar la dirección.', false);
+        } finally {
+            if (this.searchAddressBtn) {
+                this.searchAddressBtn.textContent = 'Buscar';
+                this.searchAddressBtn.disabled = false;
+            }
+        }
+    }
+
     getSelectedVehicles() {
         const checkboxes = document.querySelectorAll('input[name="vehicles_involved"]:checked');
         return Array.from(checkboxes).map(cb => cb.value);
@@ -332,6 +376,76 @@ class SiniestrosApp {
             this.loadingSpinner?.classList.add('hidden');
             if (this.submitBtn) this.submitBtn.disabled = false;
         }
+    }
+
+    exportToCSV() {
+        if (this.allAccidentRecords.length === 0) {
+            this.displayMessage("No hay datos para exportar.", false);
+            return;
+        }
+
+        const headers = ["Fecha", "Ubicación", "Tipo de Siniestro", "Gravedad", "Tipo de Vía", "Total Vehículos", "Vehículos Involucrados", "Descripción", "Registrado Por"];
+
+        const rows = this.allAccidentRecords.map(record => {
+            const date = record.fecha ? new Date(record.fecha).toLocaleString('es-AR') : 'N/A';
+            const vehicles = (record.vehicles_involved || []).join('; ');
+            const description = (record.descripcion || '').replace(/(\r\n|\n|\r)/gm, " ");
+
+            return [
+                `"${date}"`,
+                `"${record.ubicacion || ''}"`,
+                `"${record.tipo || ''}"`,
+                `"${record.gravedad || ''}"`,
+                `"${record.tipo_via || ''}"`,
+                `"${record.vehiculos_total || 0}"`,
+                `"${vehicles}"`,
+                `"${description}"`,
+                `"${record.recordedBy || ''}"`
+            ].join(',');
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `siniestros_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    exportToPDF() {
+        const element = document.getElementById('statistics-output');
+        if (!element || this.allAccidentRecords.length === 0) {
+            this.displayMessage("No hay estadísticas para exportar.", false);
+            return;
+        }
+
+        const opt = {
+            margin:       0.5,
+            filename:     `estadisticas_${new Date().toISOString().slice(0,10)}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        // Temporarily show all sections to ensure they are captured
+        const hiddenSections = [];
+        ['stats-via', 'stats-gravedad', 'stats-vehiculos'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                hiddenSections.push(el);
+            }
+        });
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            // Restore hidden state if needed
+            hiddenSections.forEach(el => el.classList.add('hidden'));
+        }).catch(err => {
+            console.error("Error exporting PDF:", err);
+            this.displayMessage("Error al generar el PDF.", false);
+        });
     }
 
     loadAccidentRecords() {

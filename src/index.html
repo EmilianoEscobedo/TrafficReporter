@@ -17,6 +17,8 @@
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="styles/styles.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 <div class="min-h-screen pb-16">
@@ -140,10 +142,20 @@
                         <div class="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 space-y-2 sm:space-y-0">
                                 <label class="block text-sm font-medium text-blue-800">Seleccione una ubicación en el mapa:</label>
-                                <button type="button" id="locate-me-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs font-medium">
-                                    📍 Mi Ubicación
+                                <div class="flex gap-2">
+                                    <button type="button" id="locate-me-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs font-medium">
+                                        📍 Mi Ubicación
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-2 mb-3">
+                                <input type="text" id="manual-address" placeholder="Ej: Lagos 999" class="block w-full rounded-lg border-gray-300 shadow-sm p-2 text-sm focus:ring-teal-500 focus:border-teal-500">
+                                <button type="button" id="search-address-btn" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                                    Buscar
                                 </button>
                             </div>
+
                             <div id="form-map" class="h-48 sm:h-64 rounded-lg border border-blue-300"></div>
                             <div class="mt-2 space-y-1">
                                 <div class="text-xs text-blue-600">
@@ -203,7 +215,13 @@
                 </div>
 
                 <div class="bg-white card rounded-xl p-4 sm:p-6">
-                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Historial de Registros</h2>
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Historial de Registros</h2>
+                        <button id="export-csv-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm font-medium flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Exportar CSV
+                        </button>
+                    </div>
                     <div id="records-list" class="space-y-4">
                         <p id="empty-state" class="text-center text-gray-500 italic">No hay registros de accidentes aún.</p>
                     </div>
@@ -248,7 +266,13 @@
             </div>
 
             <div id="content-estadisticas" class="hidden bg-white card rounded-xl p-4 sm:p-6">
-                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Análisis de Datos Agregados</h2>
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Análisis de Datos Agregados</h2>
+                    <button id="export-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm font-medium flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        Exportar PDF
+                    </button>
+                </div>
                 <div id="statistics-output" class="space-y-6 sm:space-y-8">
                     <div class="text-center text-gray-500 italic" id="stats-loading">Cargando datos o esperando registros...</div>
 
@@ -272,7 +296,6 @@
     </div>
 </div>
 
-<!-- Sticky PWA Install Prompt -->
 <div id="pwa-install-prompt" class="hidden fixed bottom-0 left-0 right-0 bg-blue-600 text-white p-4 shadow-lg z-[9999]">
     <div class="max-w-md mx-auto flex items-center justify-between">
         <div class="flex items-center">
