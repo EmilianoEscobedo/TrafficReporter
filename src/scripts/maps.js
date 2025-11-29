@@ -8,7 +8,6 @@ class MapManager {
         this.defaultLng = -58.3960;
         this.defaultZoom = 13;
 
-        // Resize observer to fix partial loading/grey tiles
         this.resizeObserver = new ResizeObserver(() => {
             this.invalidateSize();
         });
@@ -22,7 +21,7 @@ class MapManager {
     initFormMap() {
         const formMapElement = document.getElementById('form-map');
         if (!this.formMap && formMapElement) {
-            this.formMap = L.map('form-map').setView([this.defaultLat, this.defaultLng], this.defaultZoom);
+            this.formMap = L.map('form-map', { preferCanvas: true }).setView([this.defaultLat, this.defaultLng], this.defaultZoom);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(this.formMap);
@@ -30,7 +29,6 @@ class MapManager {
             this.formMap.on('click', async (e) => {
                 this.selectedLatLng = e.latlng;
 
-                // Show temporary marker while loading
                 this.formMap.eachLayer(layer => {
                     if (layer instanceof L.Marker) {
                         this.formMap.removeLayer(layer);
@@ -38,13 +36,12 @@ class MapManager {
                 });
 
                 const tempMarker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(this.formMap);
-                const address = await this.updateSelectedLocation(e.latlng);
 
-                // Update marker with address
+                const address = await this.updateSelectedLocation(e.latlng, true);
+
                 tempMarker.bindPopup(address || '📍 Ubicación seleccionada').openPopup();
             });
 
-            // Observe for size changes
             this.resizeObserver.observe(formMapElement);
         }
     }
@@ -52,20 +49,19 @@ class MapManager {
     initMainMap() {
         const mainMapElement = document.getElementById('main-map');
         if (!this.mainMap && mainMapElement) {
-            this.mainMap = L.map('main-map').setView([this.defaultLat, this.defaultLng], this.defaultZoom);
+            this.mainMap = L.map('main-map', { preferCanvas: true }).setView([this.defaultLat, this.defaultLng], this.defaultZoom);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(this.mainMap);
 
-            // Observe for size changes
             this.resizeObserver.observe(mainMapElement);
         }
     }
 
-    async updateSelectedLocation(latlng) {
+    async updateSelectedLocation(latlng, updateInput = false) {
         const coordsSpan = document.getElementById('selected-coords');
         const addressSpan = document.getElementById('selected-address');
-        const hiddenLocationInput = document.getElementById('ubicacion');
+        const manualInput = document.getElementById('manual-address');
         let addressResult = '';
 
         if (coordsSpan) {
@@ -81,8 +77,8 @@ class MapManager {
             const address = await window.GeocodingService.reverseGeocode(latlng.lat, latlng.lng);
             addressResult = address;
 
-            if (hiddenLocationInput) {
-                hiddenLocationInput.value = address;
+            if (updateInput && manualInput) {
+                manualInput.value = address;
             }
 
             if (addressSpan) {
@@ -96,8 +92,8 @@ class MapManager {
             const fallbackAddress = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
             addressResult = fallbackAddress;
 
-            if (hiddenLocationInput) {
-                hiddenLocationInput.value = fallbackAddress;
+            if (updateInput && manualInput) {
+                manualInput.value = fallbackAddress;
             }
 
             if (addressSpan) {
@@ -120,17 +116,15 @@ class MapManager {
                 const lng = position.coords.longitude;
 
                 this.selectedLatLng = { lat, lng };
-                const address = await this.updateSelectedLocation({ lat, lng });
+                const address = await this.updateSelectedLocation({ lat, lng }, true);
 
                 if (this.formMap) {
                     this.formMap.setView([lat, lng], 16);
-
                     this.formMap.eachLayer(layer => {
                         if (layer instanceof L.Marker) {
                             this.formMap.removeLayer(layer);
                         }
                     });
-
                     L.marker([lat, lng])
                         .addTo(this.formMap)
                         .bindPopup(address || '📍 Tu ubicación')
@@ -159,7 +153,8 @@ class MapManager {
             const latlng = { lat, lng };
 
             this.selectedLatLng = latlng;
-            await this.updateSelectedLocation(latlng);
+
+            await this.updateSelectedLocation(latlng, false);
 
             if (this.formMap) {
                 this.formMap.setView([lat, lng], 16);
@@ -204,6 +199,7 @@ class MapManager {
         if (!record.latitude || !record.longitude) return null;
 
         const color = this.getMarkerColor(record.gravedad);
+
         const marker = L.circleMarker([record.latitude, record.longitude], {
             radius: 8,
             fillColor: color,
@@ -304,7 +300,6 @@ class MapManager {
         this.selectedLatLng = null;
         const coordsSpan = document.getElementById('selected-coords');
         const addressSpan = document.getElementById('selected-address');
-        const hiddenLocationInput = document.getElementById('ubicacion');
         const manualInput = document.getElementById('manual-address');
 
         if (coordsSpan) {
@@ -314,10 +309,6 @@ class MapManager {
         if (addressSpan) {
             addressSpan.textContent = 'La dirección aparecerá aquí cuando seleccione una ubicación';
             addressSpan.className = 'italic text-gray-600';
-        }
-
-        if (hiddenLocationInput) {
-            hiddenLocationInput.value = '';
         }
 
         if (manualInput) {

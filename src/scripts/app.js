@@ -31,10 +31,12 @@ class SiniestrosApp {
         this.isAuthReady = false;
 
         this.allAccidentRecords = [];
-        this.filteredRecords = [];
+        this.filteredHistory = [];
+        this.filteredStats = [];
 
-        this.editingRecordId = null; // Track which record is being edited
-        this.dateFilter = { start: null, end: null };
+        this.editingRecordId = null;
+        this.currentPage = 1;
+        this.itemsPerPage = 5;
 
         this.mapManager = new window.MapManager();
         this.pwaManager = new window.PWAManager();
@@ -59,6 +61,7 @@ class SiniestrosApp {
         this.cancelEditBtn = document.getElementById('cancel-edit-btn');
 
         this.recordsList = document.getElementById('records-list');
+        this.paginationControls = document.getElementById('pagination-controls');
         this.accidentCount = document.getElementById('accident-count');
         this.emptyState = document.getElementById('empty-state');
         this.submitBtn = document.getElementById('submit-btn');
@@ -71,25 +74,38 @@ class SiniestrosApp {
         this.statsViaSection = document.getElementById('stats-via');
         this.statsGravedadSection = document.getElementById('stats-gravedad');
         this.statsVehiculosSection = document.getElementById('stats-vehiculos');
+        this.statsTimeSection = document.getElementById('stats-time');
+        this.statsDaySection = document.getElementById('stats-day');
+        this.statsMonthSection = document.getElementById('stats-month');
+        this.statsYearSection = document.getElementById('stats-year');
+
         this.chartVia = document.getElementById('chart-via');
         this.chartGravedad = document.getElementById('chart-gravedad');
         this.chartVehiculos = document.getElementById('chart-vehiculos');
+        this.chartTime = document.getElementById('chart-time');
+        this.chartDay = document.getElementById('chart-day');
+        this.chartMonth = document.getElementById('chart-month');
+        this.chartYear = document.getElementById('chart-year');
 
         this.locateMeBtn = document.getElementById('locate-me-btn');
         this.showAllAccidentsBtn = document.getElementById('show-all-accidents');
         this.showFatalAccidentsBtn = document.getElementById('show-fatal-accidents');
+        this.exportMapPdfBtn = document.getElementById('export-map-pdf-btn');
 
         this.searchAddressBtn = document.getElementById('search-address-btn');
         this.manualAddressInput = document.getElementById('manual-address');
         this.exportCsvBtn = document.getElementById('export-csv-btn');
         this.exportPdfBtn = document.getElementById('export-pdf-btn');
-        this.shareMapBtn = document.getElementById('share-map-btn');
 
-        // Filter elements
-        this.dateFiltersDiv = document.getElementById('date-filters');
-        this.filterStartDate = document.getElementById('filter-start-date');
-        this.filterEndDate = document.getElementById('filter-end-date');
-        this.clearFiltersBtn = document.getElementById('clear-filters-btn');
+        // History Filters
+        this.historyStart = document.getElementById('history-start');
+        this.historyEnd = document.getElementById('history-end');
+        this.historyClearBtn = document.getElementById('history-clear-btn');
+
+        // Stats Filters
+        this.statsStart = document.getElementById('stats-start');
+        this.statsEnd = document.getElementById('stats-end');
+        this.statsClearBtn = document.getElementById('stats-clear-btn');
     }
 
     attachEventListeners() {
@@ -117,34 +133,49 @@ class SiniestrosApp {
         if (this.searchAddressBtn) {
             this.searchAddressBtn.addEventListener('click', () => this.handleManualAddressSearch());
         }
+        if (this.manualAddressInput) {
+            this.manualAddressInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.handleManualAddressSearch();
+                }
+            });
+        }
         if (this.exportCsvBtn) {
             this.exportCsvBtn.addEventListener('click', () => this.exportToCSV());
         }
         if (this.exportPdfBtn) {
             this.exportPdfBtn.addEventListener('click', () => this.exportToPDF());
         }
-        if (this.shareMapBtn) {
-            this.shareMapBtn.addEventListener('click', () => this.shareMap());
+        if (this.exportMapPdfBtn) {
+            this.exportMapPdfBtn.addEventListener('click', () => this.exportMapToPDF());
         }
 
-        // Filter events
-        if (this.filterStartDate) {
-            this.filterStartDate.addEventListener('change', () => this.applyDateFilter());
-        }
-        if (this.filterEndDate) {
-            this.filterEndDate.addEventListener('change', () => this.applyDateFilter());
-        }
-        if (this.clearFiltersBtn) {
-            this.clearFiltersBtn.addEventListener('click', () => this.clearFilters());
-        }
+        // History Filter events
+        if (this.historyStart) this.historyStart.addEventListener('change', () => this.filterHistory());
+        if (this.historyEnd) this.historyEnd.addEventListener('change', () => this.filterHistory());
+        if (this.historyClearBtn) this.historyClearBtn.addEventListener('click', () => {
+            this.historyStart.value = '';
+            this.historyEnd.value = '';
+            this.filterHistory();
+        });
+
+        // Stats Filter events
+        if (this.statsStart) this.statsStart.addEventListener('change', () => this.filterStats());
+        if (this.statsEnd) this.statsEnd.addEventListener('change', () => this.filterStats());
+        if (this.statsClearBtn) this.statsClearBtn.addEventListener('click', () => {
+            this.statsStart.value = '';
+            this.statsEnd.value = '';
+            this.filterStats();
+        });
 
         window.showTab = (tabName) => this.showTab(tabName);
         window.showRecordOnMap = (lat, lng, ubicacion) => this.mapManager.showRecordOnMap(lat, lng, ubicacion);
         window.displayMessage = (text, isSuccess) => this.displayMessage(text, isSuccess);
 
-        // Exposed for inline onClick handlers
         window.handleEditRecord = (id) => this.handleEditRecord(id);
         window.handleDeleteRecord = (id) => this.handleDeleteRecord(id);
+        window.changePage = (page) => this.changePage(page);
     }
 
     getEnvironmentVars() {
@@ -234,15 +265,10 @@ class SiniestrosApp {
             activeTab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
         }
 
-        // Show filter section only for Registro and Estadisticas
-        if (tabName === 'registro' || tabName === 'estadisticas') {
-            this.dateFiltersDiv?.classList.remove('hidden');
-        } else {
-            this.dateFiltersDiv?.classList.add('hidden');
-        }
-
         if (tabName === 'estadisticas') {
-            this.renderStatistics(this.filteredRecords);
+            this.filterStats();
+        } else if (tabName === 'registro') {
+            this.filterHistory();
         } else if (tabName === 'mapa') {
             setTimeout(() => {
                 this.mapManager.invalidateSize();
@@ -367,7 +393,6 @@ class SiniestrosApp {
             await deleteDoc(doc(this.db, 'shared_accident_reports', id));
             this.displayMessage("Registro eliminado correctamente.", true);
 
-            // If we were editing this record, cancel the edit
             if (this.editingRecordId === id) {
                 this.cancelEditing();
             }
@@ -384,7 +409,6 @@ class SiniestrosApp {
 
         this.editingRecordId = id;
 
-        // Update UI for Edit Mode
         if (this.formTitle) this.formTitle.textContent = "Editar Accidente";
         if (this.submitText) this.submitText.textContent = "Actualizar Registro";
         if (this.submitBtn) {
@@ -393,7 +417,6 @@ class SiniestrosApp {
         }
         if (this.cancelEditBtn) this.cancelEditBtn.classList.remove('hidden');
 
-        // Populate Form
         if (this.fechaInput) this.fechaInput.value = record.fecha;
 
         const tipoViaSelect = document.getElementById('tipo_via');
@@ -411,16 +434,14 @@ class SiniestrosApp {
         const descripcionInput = document.getElementById('descripcion');
         if (descripcionInput) descripcionInput.value = record.descripcion || '';
 
-        // Checkboxes
+        if (this.manualAddressInput) this.manualAddressInput.value = record.ubicacion || '';
+
         document.querySelectorAll('input[name="vehicles_involved"]').forEach(cb => {
             cb.checked = record.vehicles_involved ? record.vehicles_involved.includes(cb.value) : false;
         });
 
-        // Map Location
         this.mapManager.selectedLatLng = { lat: record.latitude, lng: record.longitude };
-        this.mapManager.updateSelectedLocation(this.mapManager.selectedLatLng); // Show address
 
-        // Setup Map Marker for edit
         if (this.mapManager.formMap) {
             this.mapManager.formMap.eachLayer(layer => {
                 if (layer instanceof L.Marker) {
@@ -430,11 +451,10 @@ class SiniestrosApp {
             this.mapManager.formMap.setView([record.latitude, record.longitude], 16);
             L.marker([record.latitude, record.longitude])
                 .addTo(this.mapManager.formMap)
-                .bindPopup('📍 Ubicación guardada')
+                .bindPopup(record.ubicacion || '📍 Ubicación guardada')
                 .openPopup();
         }
 
-        // Scroll to form
         document.getElementById('form-container').scrollIntoView({ behavior: 'smooth' });
     }
 
@@ -444,7 +464,6 @@ class SiniestrosApp {
         this.setInitialDateTime();
         this.mapManager.resetFormMap();
 
-        // Reset UI
         if (this.formTitle) this.formTitle.textContent = "Registrar Nuevo Accidente";
         if (this.submitText) this.submitText.textContent = "Registrar Accidente";
         if (this.submitBtn) {
@@ -482,10 +501,16 @@ class SiniestrosApp {
             return;
         }
 
+        const manualLocation = this.manualAddressInput ? this.manualAddressInput.value : '';
+        if (!manualLocation) {
+            this.displayMessage("Por favor, ingresa o selecciona una dirección.", false);
+            return;
+        }
+
         const formData = new FormData(this.form);
         const data = {
             fecha: formData.get('fecha'),
-            ubicacion: formData.get('ubicacion'),
+            ubicacion: manualLocation,
             tipo_via: tipoVia,
             tipo: tipoSiniestro,
             gravedad: gravedad,
@@ -497,11 +522,9 @@ class SiniestrosApp {
         };
 
         if (this.editingRecordId) {
-            // Update existing record
             data.updatedAt = serverTimestamp();
             data.updatedBy = this.currentUser.email;
         } else {
-            // New record
             data.createdAt = serverTimestamp();
             data.recordedBy = this.currentUser.email;
             data.recordedByUid = this.currentUser.uid;
@@ -515,7 +538,7 @@ class SiniestrosApp {
             if (this.editingRecordId) {
                 await updateDoc(doc(this.db, 'shared_accident_reports', this.editingRecordId), data);
                 this.displayMessage("Registro actualizado correctamente.", true);
-                this.cancelEditing(); // Exit edit mode
+                this.cancelEditing();
             } else {
                 await addDoc(collection(this.db, 'shared_accident_reports'), data);
                 this.form.reset();
@@ -537,73 +560,54 @@ class SiniestrosApp {
 
     // --- Filtering ---
 
-    applyDateFilter() {
-        const start = this.filterStartDate.value ? new Date(this.filterStartDate.value) : null;
-        const end = this.filterEndDate.value ? new Date(this.filterEndDate.value) : null;
+    filterHistory() {
+        const start = this.historyStart.value ? new Date(this.historyStart.value) : null;
+        const end = this.historyEnd.value ? new Date(this.historyEnd.value) : null;
 
-        // Adjust end date to include the whole day
-        if (end) {
-            end.setHours(23, 59, 59, 999);
-        }
+        if (end) end.setHours(23, 59, 59, 999);
 
-        this.filteredRecords = this.allAccidentRecords.filter(record => {
+        this.filteredHistory = this.allAccidentRecords.filter(record => {
             if (!record.fecha) return false;
             const recordDate = new Date(record.fecha);
-
             if (start && recordDate < start) return false;
             if (end && recordDate > end) return false;
-
             return true;
         });
 
-        // Update UI
-        this.renderRecords(this.filteredRecords);
-        this.renderStatistics(this.filteredRecords);
+        this.currentPage = 1;
+        this.renderRecords(this.filteredHistory);
     }
 
-    clearFilters() {
-        this.filterStartDate.value = '';
-        this.filterEndDate.value = '';
-        this.filteredRecords = [...this.allAccidentRecords];
-        this.renderRecords(this.filteredRecords);
-        this.renderStatistics(this.filteredRecords);
-    }
+    filterStats() {
+        const start = this.statsStart.value ? new Date(this.statsStart.value) : null;
+        const end = this.statsEnd.value ? new Date(this.statsEnd.value) : null;
 
-    // --- Sharing ---
+        if (end) end.setHours(23, 59, 59, 999);
 
-    async shareMap() {
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: 'Mapa de Siniestros Viales',
-                    text: 'Mira el mapa de siniestros viales registrados en 9 de Julio.',
-                    url: window.location.href
-                });
-            } catch (err) {
-                console.log('Error sharing:', err);
-            }
-        } else {
-            // Fallback: Copy to clipboard
-            try {
-                await navigator.clipboard.writeText(window.location.href);
-                this.displayMessage('Enlace copiado al portapapeles', true);
-            } catch (err) {
-                this.displayMessage('No se pudo compartir', false);
-            }
-        }
+        this.filteredStats = this.allAccidentRecords.filter(record => {
+            if (!record.fecha) return false;
+            const recordDate = new Date(record.fecha);
+            if (start && recordDate < start) return false;
+            if (end && recordDate > end) return false;
+            return true;
+        });
+
+        this.renderStatistics(this.filteredStats);
     }
 
     // --- Exports ---
 
     exportToCSV() {
-        if (this.filteredRecords.length === 0) {
-            this.displayMessage("No hay datos para exportar con el filtro actual.", false);
+        const recordsToExport = this.filteredHistory.length > 0 ? this.filteredHistory : this.allAccidentRecords;
+
+        if (recordsToExport.length === 0) {
+            this.displayMessage("No hay datos para exportar.", false);
             return;
         }
 
         const headers = ["Fecha", "Ubicación", "Tipo de Siniestro", "Gravedad", "Tipo de Vía", "Total Vehículos", "Vehículos Involucrados", "Descripción", "Registrado Por"];
 
-        const rows = this.filteredRecords.map(record => {
+        const rows = recordsToExport.map(record => {
             const date = record.fecha ? new Date(record.fecha).toLocaleString('es-AR') : 'N/A';
             const vehicles = (record.vehicles_involved || []).join('; ');
             const description = (record.descripcion || '').replace(/(\r\n|\n|\r)/gm, " ");
@@ -625,42 +629,136 @@ class SiniestrosApp {
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `siniestros_filtrados_${new Date().toISOString().slice(0,10)}.csv`);
+        link.setAttribute("download", `siniestros_${new Date().toISOString().slice(0,10)}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 
     exportToPDF() {
-        const element = document.getElementById('statistics-output');
-        if (!element || this.filteredRecords.length === 0) {
-            this.displayMessage("No hay estadísticas para exportar con el filtro actual.", false);
+        if (this.filteredStats.length === 0) {
+            this.displayMessage("No hay estadísticas para exportar.", false);
             return;
         }
 
+        const element = document.getElementById('statistics-output');
+
+        // Save current state
+        const originalWidth = element.style.width;
+        const originalMargin = element.style.margin;
+
+        // 1. Prepare element for export
+        // Reduced width from 700px to 670px (-30px) as requested
+        element.style.width = '670px';
+        element.style.margin = '0';
+
+        // Unhide all sections
+        const hiddenSections = element.querySelectorAll('.hidden');
+        hiddenSections.forEach(el => el.classList.remove('hidden'));
+
+        // Hide loading message
+        const loadingMsg = document.getElementById('stats-loading');
+        if (loadingMsg) loadingMsg.style.display = 'none';
+
+        // 2. Add Title and Subtitle dynamically
+        const headerId = 'temp-pdf-header';
+        let headerDiv = document.getElementById(headerId);
+        if (!headerDiv) {
+            headerDiv = document.createElement('div');
+            headerDiv.id = headerId;
+            headerDiv.className = 'mb-6';
+
+            const title = document.createElement('h1');
+            title.className = "text-2xl font-bold text-gray-800 mb-2 border-b-2 border-teal-500 pb-2";
+            title.textContent = "Estadísticas de Siniestros Viales";
+
+            const subtitle = document.createElement('p');
+            subtitle.className = "text-sm text-gray-600";
+
+            const startStr = this.statsStart.value;
+            const endStr = this.statsEnd.value;
+
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '';
+                const [y, m, d] = dateStr.split('-');
+                return `${d}/${m}/${y}`;
+            };
+
+            if (!startStr && !endStr) {
+                subtitle.textContent = "Histórico";
+            } else {
+                const s = startStr ? formatDate(startStr) : 'Inicio';
+                const e = endStr ? formatDate(endStr) : 'Presente';
+                subtitle.textContent = `Desde ${s} al ${e}`;
+            }
+
+            headerDiv.appendChild(title);
+            headerDiv.appendChild(subtitle);
+
+            element.prepend(headerDiv);
+        }
+
+        // 3. Generate PDF
         const opt = {
             margin:       0.5,
-            filename:     `estadisticas_filtradas_${new Date().toISOString().slice(0,10)}.pdf`,
+            filename:     `estadisticas_${new Date().toISOString().slice(0,10)}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
+            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
         };
 
-        const hiddenSections = [];
-        ['stats-via', 'stats-gravedad', 'stats-vehiculos'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el && el.classList.contains('hidden')) {
-                el.classList.remove('hidden');
-                hiddenSections.push(el);
-            }
-        });
+        window.scrollTo(0, 0);
 
         html2pdf().set(opt).from(element).save().then(() => {
+            // 4. Restore state
+            element.style.width = originalWidth;
+            element.style.margin = originalMargin;
             hiddenSections.forEach(el => el.classList.add('hidden'));
+            if (loadingMsg) loadingMsg.style.display = '';
+            if (headerDiv) headerDiv.remove();
         }).catch(err => {
             console.error("Error exporting PDF:", err);
             this.displayMessage("Error al generar el PDF.", false);
+
+            element.style.width = originalWidth;
+            element.style.margin = originalMargin;
+            hiddenSections.forEach(el => el.classList.add('hidden'));
+            if (loadingMsg) loadingMsg.style.display = '';
+            if (headerDiv) headerDiv.remove();
         });
+    }
+
+    exportMapToPDF() {
+        const element = document.getElementById('map-card');
+        const actions = document.getElementById('map-actions');
+
+        if (!element) return;
+
+        // Hide buttons for export
+        if (actions) actions.style.display = 'none';
+
+        // Scroll to map
+        element.scrollIntoView();
+
+        const opt = {
+            margin:       0.2,
+            filename:     `mapa_siniestros_${new Date().toISOString().slice(0,10)}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, allowTaint: true, logging: false },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+        };
+
+        // Wait a small delay for map tiles to settle
+        setTimeout(() => {
+            html2pdf().set(opt).from(element).save().then(() => {
+                if (actions) actions.style.display = 'flex';
+            }).catch(err => {
+                console.error("Error exporting Map PDF:", err);
+                this.displayMessage("Error al generar el PDF del mapa.", false);
+                if (actions) actions.style.display = 'flex';
+            });
+        }, 500);
     }
 
     loadAccidentRecords() {
@@ -679,8 +777,8 @@ class SiniestrosApp {
 
             this.allAccidentRecords = records;
 
-            // Re-apply current filter
-            this.applyDateFilter();
+            this.filterHistory();
+            this.filterStats();
 
             if (this.accidentCount) {
                 this.accidentCount.textContent = records.length;
@@ -705,6 +803,42 @@ class SiniestrosApp {
         return `<span class="badge ${color}">${vehicle}</span>`;
     }
 
+    changePage(page) {
+        if (page < 1) return;
+        const totalPages = Math.ceil(this.filteredHistory.length / this.itemsPerPage);
+        if (page > totalPages && totalPages > 0) return;
+
+        this.currentPage = page;
+        this.renderRecords(this.filteredHistory);
+        if (this.recordsList) {
+            this.recordsList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    renderPaginationControls(totalPages) {
+        if (!this.paginationControls) return;
+        this.paginationControls.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        const prevDisabled = this.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200';
+        const nextDisabled = this.currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200';
+
+        let html = `
+            <button onclick="changePage(${this.currentPage - 1})" class="px-3 py-1 bg-gray-100 rounded text-sm text-gray-700 ${prevDisabled}" ${this.currentPage === 1 ? 'disabled' : ''}>
+                &laquo; Ant
+            </button>
+            <span class="text-sm text-gray-600 px-2">
+                Pág ${this.currentPage} de ${totalPages}
+            </span>
+            <button onclick="changePage(${this.currentPage + 1})" class="px-3 py-1 bg-gray-100 rounded text-sm text-gray-700 ${nextDisabled}" ${this.currentPage === totalPages ? 'disabled' : ''}>
+                Sig &raquo;
+            </button>
+        `;
+
+        this.paginationControls.innerHTML = html;
+    }
+
     renderRecords(records) {
         if (!this.recordsList) return;
 
@@ -712,11 +846,17 @@ class SiniestrosApp {
 
         if (records.length === 0) {
             this.emptyState?.classList.remove('hidden');
+            if(this.paginationControls) this.paginationControls.innerHTML = '';
             return;
         }
         this.emptyState?.classList.add('hidden');
 
-        records.forEach(record => {
+        const totalPages = Math.ceil(records.length / this.itemsPerPage);
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+        const endIndex = startIndex + this.itemsPerPage;
+        const recordsToDisplay = records.slice(startIndex, endIndex);
+
+        recordsToDisplay.forEach(record => {
             const date = record.fecha ? new Date(record.fecha).toLocaleString('es-AR') : 'Fecha no especificada';
             const vehicleBadges = (record.vehicles_involved || []).map(v => this.getVehicleBadge(v)).join('');
             const recordedBy = record.recordedBy || 'Usuario no identificado';
@@ -736,10 +876,6 @@ class SiniestrosApp {
 
             const element = document.createElement('div');
             element.className = recordWrapperClass;
-
-            // Check if current user is the owner of the record (optional, but good practice)
-            // For now, allow edit if authenticated as the app requirements seem to imply open trust or shared account
-            const isOwner = this.currentUser && (record.recordedByUid === this.currentUser.uid || !record.recordedByUid);
 
             const actionButtons = `
                 <div class="flex space-x-2 mt-1 sm:mt-0">
@@ -768,6 +904,7 @@ class SiniestrosApp {
                      <div class="hidden sm:block">${actionButtons}</div>
                 </div>
                 
+                
                 <div class="grid grid-cols-1 sm:grid-cols-2 text-xs sm:text-sm gap-2">
                     <p><strong>Tipo de Siniestro:</strong> ${record.tipo}</p>
                     <p><strong>Total Vehículos:</strong> ${record.vehiculos_total || 0}</p>
@@ -788,6 +925,26 @@ class SiniestrosApp {
             `;
             this.recordsList.appendChild(element);
         });
+
+        this.renderPaginationControls(totalPages);
+    }
+
+    renderBarChart(element, data, total) {
+        if (!element) return;
+        element.innerHTML = data.map(([label, count]) => {
+            const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+            return `
+                <div class="relative w-full">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs sm:text-sm font-medium text-gray-800">${label}</span>
+                        <span class="text-xs font-semibold text-teal-600">${count} (${percentage}%)</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-lg overflow-hidden">
+                        <div class="progress-bar bg-teal-500" style="width: ${percentage}%">${percentage}%</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     renderStatistics(records) {
@@ -795,18 +952,19 @@ class SiniestrosApp {
         this.statsLoading?.classList.add('hidden');
 
         if (total === 0) {
-            if (this.statsLoading) this.statsLoading.textContent = "No hay registros en el rango de fechas seleccionado.";
+            if (this.statsLoading) this.statsLoading.textContent = "No hay registros en el rango seleccionado.";
             this.statsLoading?.classList.remove('hidden');
-            this.statsViaSection?.classList.add('hidden');
-            this.statsGravedadSection?.classList.add('hidden');
-            this.statsVehiculosSection?.classList.add('hidden');
+            ['stats-via', 'stats-gravedad', 'stats-vehiculos', 'stats-time', 'stats-day', 'stats-month', 'stats-year'].forEach(id => {
+                document.getElementById(id)?.classList.add('hidden');
+            });
             return;
         }
 
-        this.statsViaSection?.classList.remove('hidden');
-        this.statsGravedadSection?.classList.remove('hidden');
-        this.statsVehiculosSection?.classList.remove('hidden');
+        ['stats-via', 'stats-gravedad', 'stats-vehiculos', 'stats-time', 'stats-day', 'stats-month', 'stats-year'].forEach(id => {
+            document.getElementById(id)?.classList.remove('hidden');
+        });
 
+        // 1. Via
         const viaCounts = records.reduce((acc, record) => {
             const key = record.tipo_via || 'Desconocido';
             acc[key] = (acc[key] || 0) + 1;
@@ -817,10 +975,7 @@ class SiniestrosApp {
             this.chartVia.innerHTML = Object.entries(viaCounts).map(([via, count]) => {
                 const percentage = ((count / total) * 100).toFixed(1);
                 let barColor = 'bg-teal-500';
-                if (via.includes('CON Boulevard')) {
-                    barColor = 'bg-red-600';
-                }
-
+                if (via.includes('CON Boulevard')) barColor = 'bg-red-600';
                 return `
                     <div class="relative w-full">
                         <div class="flex justify-between items-center mb-1">
@@ -835,13 +990,13 @@ class SiniestrosApp {
             }).join('');
         }
 
+        // 2. Gravedad
         const gravedadOrder = ['Fatal', 'Lesiones Graves', 'Lesiones Leves', 'Sin Lesiones'];
         const gravedadCounts = records.reduce((acc, record) => {
             const key = record.gravedad || 'Desconocido';
             acc[key] = (acc[key] || 0) + 1;
             return acc;
         }, {});
-
         const sortedGravedades = Object.entries(gravedadCounts).sort(([a], [b]) => gravedadOrder.indexOf(a) - gravedadOrder.indexOf(b));
 
         if (this.chartGravedad) {
@@ -852,7 +1007,6 @@ class SiniestrosApp {
                 else if (gravedad === 'Lesiones Graves') barColor = 'bg-orange-600';
                 else if (gravedad === 'Lesiones Leves') barColor = 'bg-yellow-500';
                 else if (gravedad === 'Sin Lesiones') barColor = 'bg-green-600';
-
                 return `
                     <div class="relative w-full">
                         <div class="flex justify-between items-center mb-1">
@@ -867,13 +1021,13 @@ class SiniestrosApp {
             }).join('');
         }
 
+        // 3. Vehiculos
         const vehicleCounts = {};
         records.forEach(record => {
             (record.vehicles_involved || []).forEach(vehicle => {
                 vehicleCounts[vehicle] = (vehicleCounts[vehicle] || 0) + 1;
             });
         });
-
         const totalInvolvements = Object.values(vehicleCounts).reduce((sum, count) => sum + count, 0);
         const sortedVehicles = Object.entries(vehicleCounts).sort(([, a], [, b]) => b - a);
 
@@ -887,7 +1041,6 @@ class SiniestrosApp {
                 else if (vehicle === 'Camioneta') barColor = 'bg-purple-600';
                 else if (vehicle === 'Auto') barColor = 'bg-green-600';
                 else if (vehicle === 'Utilitario') barColor = 'bg-orange-600';
-
                 return `
                     <div class="relative w-full">
                         <div class="flex justify-between items-center mb-1">
@@ -901,6 +1054,69 @@ class SiniestrosApp {
                 `;
             }).join('');
         }
+
+        // 4. Time of Day
+        const timeCounts = new Array(24).fill(0);
+        records.forEach(record => {
+            if (record.fecha) {
+                const hour = new Date(record.fecha).getHours();
+                timeCounts[hour]++;
+            }
+        });
+
+        const timeBlocks = [
+            { label: 'Madrugada (00-06)', count: 0 },
+            { label: 'Mañana (06-12)', count: 0 },
+            { label: 'Tarde (12-18)', count: 0 },
+            { label: 'Noche (18-24)', count: 0 }
+        ];
+
+        timeCounts.forEach((count, hour) => {
+            if (hour < 6) timeBlocks[0].count += count;
+            else if (hour < 12) timeBlocks[1].count += count;
+            else if (hour < 18) timeBlocks[2].count += count;
+            else timeBlocks[3].count += count;
+        });
+
+        this.renderBarChart(this.chartTime, timeBlocks.map(b => [b.label, b.count]), total);
+
+        // 5. Day of Week
+        const dayCounts = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
+        records.forEach(record => {
+            if (record.fecha) {
+                const day = new Date(record.fecha).getDay();
+                dayCounts[day]++;
+            }
+        });
+
+        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const sortedDays = [1, 2, 3, 4, 5, 6, 0].map(dayIndex => [dayNames[dayIndex], dayCounts[dayIndex]]);
+
+        this.renderBarChart(this.chartDay, sortedDays, total);
+
+        // 6. Month
+        const monthCounts = new Array(12).fill(0);
+        records.forEach(record => {
+            if (record.fecha) {
+                const m = new Date(record.fecha).getMonth();
+                monthCounts[m]++;
+            }
+        });
+        const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        // Filter out months with 0 accidents
+        const monthData = monthNames.map((name, index) => [name, monthCounts[index]]).filter(item => item[1] > 0);
+        this.renderBarChart(this.chartMonth, monthData, total);
+
+        // 7. Year
+        const yearCounts = {};
+        records.forEach(record => {
+            if (record.fecha) {
+                const y = new Date(record.fecha).getFullYear();
+                yearCounts[y] = (yearCounts[y] || 0) + 1;
+            }
+        });
+        const yearData = Object.entries(yearCounts).sort((a, b) => b[0] - a[0]); // Newest first
+        this.renderBarChart(this.chartYear, yearData, total);
     }
 
     setInitialDateTime() {
