@@ -20,18 +20,16 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* PDF Export helper to prevent cutting components */
         .pdf-page-break {
             page-break-inside: avoid;
         }
-        /* Leaflet Fix for html2canvas */
         .leaflet-container {
-            z-index: 0; /* Helps with stacking context in exports */
+            z-index: 0;
         }
     </style>
 </head>
 <body>
-<div class="min-h-screen pb-16">
+<div class="min-h-screen pb-24">
     <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
             <div class="text-center">
@@ -85,7 +83,7 @@
             </div>
         </header>
 
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
             <div id="stats-container" class="bg-white card rounded-xl p-4 sm:p-6 mb-6 shadow-md border-t-4 border-teal-500">
                 <div class="text-xl sm:text-2xl font-bold text-teal-600 text-center">
                     Accidentes Registrados: <span id="accident-count" class="text-2xl sm:text-4xl ml-1 sm:ml-2">0</span>
@@ -231,19 +229,47 @@
                         <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Historial de Registros</h2>
                         <button id="export-csv-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm font-medium flex items-center w-full sm:w-auto justify-center">
                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            Exportar
+                            Exportar CSV
                         </button>
                     </div>
 
                     <div class="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-200">
-                        <div class="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-                            <span class="text-xs sm:text-sm font-semibold text-gray-600">Filtrar:</span>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <span class="text-xs sm:text-sm font-semibold text-gray-600 w-full sm:w-auto">Filtrar:</span>
+
                             <div class="flex items-center gap-2 w-full sm:w-auto">
                                 <input type="date" id="history-start" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
                                 <span class="text-gray-400">-</span>
                                 <input type="date" id="history-end" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
                             </div>
-                            <button id="history-clear-btn" class="text-xs text-teal-600 hover:text-teal-800 underline">Limpiar</button>
+
+                            <select id="history-vehicle" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                                <option value="">Vehículo...</option>
+                                <option value="Auto">Auto</option>
+                                <option value="Moto">Moto</option>
+                                <option value="Camioneta">Camioneta</option>
+                                <option value="Utilitario">Utilitario</option>
+                                <option value="Camión">Camión</option>
+                                <option value="Bicicleta">Bicicleta</option>
+                                <option value="Peatón">Peatón</option>
+                            </select>
+
+                            <select id="history-severity" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                                <option value="">Gravedad...</option>
+                                <option value="Sin Lesiones">Sin Lesiones</option>
+                                <option value="Lesiones Leves">Lesiones Leves</option>
+                                <option value="Lesiones Graves">Lesiones Graves</option>
+                                <option value="Fatal">Fatal</option>
+                            </select>
+
+                            <select id="history-road" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                                <option value="">Vía...</option>
+                                <option value="Calle/Pasaje simple">Calle/Pasaje simple</option>
+                                <option value="Avenida SIN Boulevard">Avenida SIN Boulevard</option>
+                                <option value="Avenida CON Boulevard (Alto Riesgo)">Avenida CON Boulevard</option>
+                            </select>
+
+                            <button id="history-clear-btn" class="text-xs text-teal-600 hover:text-teal-800 underline ml-auto sm:ml-0">Limpiar</button>
                         </div>
                     </div>
 
@@ -305,14 +331,42 @@
                 </div>
 
                 <div class="bg-gray-50 rounded-lg p-3 mb-6 border border-gray-200">
-                    <div class="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-                        <span class="text-xs sm:text-sm font-semibold text-gray-600">Rango de Fecha:</span>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span class="text-xs sm:text-sm font-semibold text-gray-600 w-full sm:w-auto">Filtrar:</span>
+
                         <div class="flex items-center gap-2 w-full sm:w-auto">
                             <input type="date" id="stats-start" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
                             <span class="text-gray-400">-</span>
                             <input type="date" id="stats-end" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
                         </div>
-                        <button id="stats-clear-btn" class="text-xs text-teal-600 hover:text-teal-800 underline">Ver Todo</button>
+
+                        <select id="stats-vehicle" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                            <option value="">Vehículo...</option>
+                            <option value="Auto">Auto</option>
+                            <option value="Moto">Moto</option>
+                            <option value="Camioneta">Camioneta</option>
+                            <option value="Utilitario">Utilitario</option>
+                            <option value="Camión">Camión</option>
+                            <option value="Bicicleta">Bicicleta</option>
+                            <option value="Peatón">Peatón</option>
+                        </select>
+
+                        <select id="stats-severity" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                            <option value="">Gravedad...</option>
+                            <option value="Sin Lesiones">Sin Lesiones</option>
+                            <option value="Lesiones Leves">Lesiones Leves</option>
+                            <option value="Lesiones Graves">Lesiones Graves</option>
+                            <option value="Fatal">Fatal</option>
+                        </select>
+
+                        <select id="stats-road" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                            <option value="">Vía...</option>
+                            <option value="Calle/Pasaje simple">Calle/Pasaje simple</option>
+                            <option value="Avenida SIN Boulevard">Avenida SIN Boulevard</option>
+                            <option value="Avenida CON Boulevard (Alto Riesgo)">Avenida CON Boulevard</option>
+                        </select>
+
+                        <button id="stats-clear-btn" class="text-xs text-teal-600 hover:text-teal-800 underline ml-auto sm:ml-0">Limpiar</button>
                     </div>
                 </div>
 
@@ -363,6 +417,10 @@
                 </div>
             </div>
         </main>
+
+        <footer class="fixed bottom-0 left-0 w-full bg-gray-100 border-t border-gray-200 text-center text-xs text-gray-500 py-3 z-40">
+            Sistema de Registro de Siniestros Viales - DOE Prensa ®
+        </footer>
     </div>
 </div>
 

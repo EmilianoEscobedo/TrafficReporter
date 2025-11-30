@@ -4,8 +4,8 @@ class MapManager {
         this.mainMap = null;
         this.selectedLatLng = null;
         this.accidentMarkers = [];
-        this.defaultLat = -34.6118;
-        this.defaultLng = -58.3960;
+        this.defaultLat = -35.44451575376546;
+        this.defaultLng = -60.884165667793056;
         this.defaultZoom = 13;
 
         this.resizeObserver = new ResizeObserver(() => {

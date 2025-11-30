@@ -100,11 +100,17 @@ class SiniestrosApp {
         // History Filters
         this.historyStart = document.getElementById('history-start');
         this.historyEnd = document.getElementById('history-end');
+        this.historyVehicle = document.getElementById('history-vehicle');
+        this.historySeverity = document.getElementById('history-severity');
+        this.historyRoad = document.getElementById('history-road');
         this.historyClearBtn = document.getElementById('history-clear-btn');
 
         // Stats Filters
         this.statsStart = document.getElementById('stats-start');
         this.statsEnd = document.getElementById('stats-end');
+        this.statsVehicle = document.getElementById('stats-vehicle');
+        this.statsSeverity = document.getElementById('stats-severity');
+        this.statsRoad = document.getElementById('stats-road');
         this.statsClearBtn = document.getElementById('stats-clear-btn');
     }
 
@@ -152,20 +158,32 @@ class SiniestrosApp {
         }
 
         // History Filter events
-        if (this.historyStart) this.historyStart.addEventListener('change', () => this.filterHistory());
-        if (this.historyEnd) this.historyEnd.addEventListener('change', () => this.filterHistory());
+        const historyInputs = [this.historyStart, this.historyEnd, this.historyVehicle, this.historySeverity, this.historyRoad];
+        historyInputs.forEach(input => {
+            if (input) input.addEventListener('change', () => this.filterHistory());
+        });
+
         if (this.historyClearBtn) this.historyClearBtn.addEventListener('click', () => {
             this.historyStart.value = '';
             this.historyEnd.value = '';
+            this.historyVehicle.value = '';
+            this.historySeverity.value = '';
+            this.historyRoad.value = '';
             this.filterHistory();
         });
 
         // Stats Filter events
-        if (this.statsStart) this.statsStart.addEventListener('change', () => this.filterStats());
-        if (this.statsEnd) this.statsEnd.addEventListener('change', () => this.filterStats());
+        const statsInputs = [this.statsStart, this.statsEnd, this.statsVehicle, this.statsSeverity, this.statsRoad];
+        statsInputs.forEach(input => {
+            if (input) input.addEventListener('change', () => this.filterStats());
+        });
+
         if (this.statsClearBtn) this.statsClearBtn.addEventListener('click', () => {
             this.statsStart.value = '';
             this.statsEnd.value = '';
+            this.statsVehicle.value = '';
+            this.statsSeverity.value = '';
+            this.statsRoad.value = '';
             this.filterStats();
         });
 
@@ -563,14 +581,37 @@ class SiniestrosApp {
     filterHistory() {
         const start = this.historyStart.value ? new Date(this.historyStart.value) : null;
         const end = this.historyEnd.value ? new Date(this.historyEnd.value) : null;
+        const vehicle = this.historyVehicle.value;
+        const severity = this.historySeverity.value;
+        const road = this.historyRoad.value;
 
         if (end) end.setHours(23, 59, 59, 999);
 
         this.filteredHistory = this.allAccidentRecords.filter(record => {
-            if (!record.fecha) return false;
-            const recordDate = new Date(record.fecha);
-            if (start && recordDate < start) return false;
-            if (end && recordDate > end) return false;
+            // Date Filter
+            if (record.fecha) {
+                const recordDate = new Date(record.fecha);
+                if (start && recordDate < start) return false;
+                if (end && recordDate > end) return false;
+            } else {
+                return false;
+            }
+
+            // Vehicle Filter
+            if (vehicle && (!record.vehicles_involved || !record.vehicles_involved.includes(vehicle))) {
+                return false;
+            }
+
+            // Severity Filter
+            if (severity && record.gravedad !== severity) {
+                return false;
+            }
+
+            // Road Filter
+            if (road && record.tipo_via !== road) {
+                return false;
+            }
+
             return true;
         });
 
@@ -581,14 +622,37 @@ class SiniestrosApp {
     filterStats() {
         const start = this.statsStart.value ? new Date(this.statsStart.value) : null;
         const end = this.statsEnd.value ? new Date(this.statsEnd.value) : null;
+        const vehicle = this.statsVehicle.value;
+        const severity = this.statsSeverity.value;
+        const road = this.statsRoad.value;
 
         if (end) end.setHours(23, 59, 59, 999);
 
         this.filteredStats = this.allAccidentRecords.filter(record => {
-            if (!record.fecha) return false;
-            const recordDate = new Date(record.fecha);
-            if (start && recordDate < start) return false;
-            if (end && recordDate > end) return false;
+            // Date Filter
+            if (record.fecha) {
+                const recordDate = new Date(record.fecha);
+                if (start && recordDate < start) return false;
+                if (end && recordDate > end) return false;
+            } else {
+                return false;
+            }
+
+            // Vehicle Filter
+            if (vehicle && (!record.vehicles_involved || !record.vehicles_involved.includes(vehicle))) {
+                return false;
+            }
+
+            // Severity Filter
+            if (severity && record.gravedad !== severity) {
+                return false;
+            }
+
+            // Road Filter
+            if (road && record.tipo_via !== road) {
+                return false;
+            }
+
             return true;
         });
 
@@ -648,7 +712,6 @@ class SiniestrosApp {
         const originalMargin = element.style.margin;
 
         // 1. Prepare element for export
-        // Reduced width from 700px to 670px (-30px) as requested
         element.style.width = '670px';
         element.style.margin = '0';
 
@@ -732,11 +795,16 @@ class SiniestrosApp {
     exportMapToPDF() {
         const element = document.getElementById('map-card');
         const actions = document.getElementById('map-actions');
+        const mapTitle = element.querySelector('h2');
 
         if (!element) return;
 
         // Hide buttons for export
         if (actions) actions.style.display = 'none';
+
+        // Style title for export
+        const originalTitleClass = mapTitle.className;
+        mapTitle.className = "text-2xl font-bold text-gray-800 mb-2 border-b-2 border-teal-500 pb-2";
 
         // Scroll to map
         element.scrollIntoView();
@@ -753,10 +821,12 @@ class SiniestrosApp {
         setTimeout(() => {
             html2pdf().set(opt).from(element).save().then(() => {
                 if (actions) actions.style.display = 'flex';
+                mapTitle.className = originalTitleClass;
             }).catch(err => {
                 console.error("Error exporting Map PDF:", err);
                 this.displayMessage("Error al generar el PDF del mapa.", false);
                 if (actions) actions.style.display = 'flex';
+                mapTitle.className = originalTitleClass;
             });
         }, 500);
     }
@@ -903,7 +973,6 @@ class SiniestrosApp {
                     </div>
                      <div class="hidden sm:block">${actionButtons}</div>
                 </div>
-                
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 text-xs sm:text-sm gap-2">
                     <p><strong>Tipo de Siniestro:</strong> ${record.tipo}</p>
