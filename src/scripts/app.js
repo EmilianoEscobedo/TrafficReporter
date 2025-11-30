@@ -19,6 +19,12 @@ import {
     serverTimestamp,
     setLogLevel
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import {
+    getStorage,
+    ref,
+    uploadBytes,
+    getDownloadURL
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 setLogLevel('Debug');
 
@@ -27,6 +33,7 @@ class SiniestrosApp {
         this.app = null;
         this.db = null;
         this.auth = null;
+        this.storage = null;
         this.currentUser = null;
         this.isAuthReady = false;
 
@@ -37,6 +44,10 @@ class SiniestrosApp {
         this.editingRecordId = null;
         this.currentPage = 1;
         this.itemsPerPage = 5;
+
+        // Lightbox state
+        this.lightboxImages = [];
+        this.lightboxIndex = 0;
 
         this.mapManager = new window.MapManager();
         this.pwaManager = new window.PWAManager();
@@ -59,6 +70,7 @@ class SiniestrosApp {
         this.form = document.getElementById('accident-form');
         this.formTitle = document.getElementById('form-title');
         this.cancelEditBtn = document.getElementById('cancel-edit-btn');
+        this.imageInput = document.getElementById('image-input');
 
         this.recordsList = document.getElementById('records-list');
         this.paginationControls = document.getElementById('pagination-controls');
@@ -112,6 +124,14 @@ class SiniestrosApp {
         this.statsSeverity = document.getElementById('stats-severity');
         this.statsRoad = document.getElementById('stats-road');
         this.statsClearBtn = document.getElementById('stats-clear-btn');
+
+        // Lightbox Elements
+        this.lightbox = document.getElementById('lightbox');
+        this.lightboxImg = document.getElementById('lightbox-img');
+        this.lightboxClose = document.getElementById('lightbox-close');
+        this.lightboxPrev = document.getElementById('lightbox-prev');
+        this.lightboxNext = document.getElementById('lightbox-next');
+        this.lightboxCounter = document.getElementById('lightbox-counter');
     }
 
     attachEventListeners() {
@@ -187,6 +207,12 @@ class SiniestrosApp {
             this.filterStats();
         });
 
+        // Lightbox events
+        if (this.lightboxClose) this.lightboxClose.addEventListener('click', () => this.closeLightbox());
+        if (this.lightboxPrev) this.lightboxPrev.addEventListener('click', (e) => { e.stopPropagation(); this.changeLightboxImage(-1); });
+        if (this.lightboxNext) this.lightboxNext.addEventListener('click', (e) => { e.stopPropagation(); this.changeLightboxImage(1); });
+        if (this.lightbox) this.lightbox.addEventListener('click', (e) => { if(e.target === this.lightbox) this.closeLightbox(); });
+
         window.showTab = (tabName) => this.showTab(tabName);
         window.showRecordOnMap = (lat, lng, ubicacion) => this.mapManager.showRecordOnMap(lat, lng, ubicacion);
         window.displayMessage = (text, isSuccess) => this.displayMessage(text, isSuccess);
@@ -194,6 +220,8 @@ class SiniestrosApp {
         window.handleEditRecord = (id) => this.handleEditRecord(id);
         window.handleDeleteRecord = (id) => this.handleDeleteRecord(id);
         window.changePage = (page) => this.changePage(page);
+
+        window.openLightbox = (recordId, index) => this.openLightbox(recordId, index);
     }
 
     getEnvironmentVars() {
@@ -307,6 +335,7 @@ class SiniestrosApp {
             this.app = initializeApp(firebaseConfig);
             this.db = getFirestore(this.app);
             this.auth = getAuth(this.app);
+            this.storage = getStorage(this.app);
 
             onAuthStateChanged(this.auth, (user) => {
                 if (user && this.isEmailAllowed(user.email)) {
@@ -481,6 +510,8 @@ class SiniestrosApp {
         this.form.reset();
         this.setInitialDateTime();
         this.mapManager.resetFormMap();
+        // Clear file input
+        if (this.imageInput) this.imageInput.value = '';
 
         if (this.formTitle) this.formTitle.textContent = "Registrar Nuevo Accidente";
         if (this.submitText) this.submitText.textContent = "Registrar Accidente";
@@ -525,6 +556,33 @@ class SiniestrosApp {
             return;
         }
 
+        this.submitText.textContent = 'Subiendo...';
+        this.loadingSpinner?.classList.remove('hidden');
+        if (this.submitBtn) this.submitBtn.disabled = true;
+
+        // Image Upload Logic
+        const uploadedImageUrls = [];
+        if (this.imageInput && this.imageInput.files.length > 0) {
+            try {
+                for (const file of this.imageInput.files) {
+                    // Create unique filename
+                    const storageRef = ref(this.storage, `accident_images/${Date.now()}_${file.name}`);
+                    await uploadBytes(storageRef, file);
+                    const url = await getDownloadURL(storageRef);
+                    uploadedImageUrls.push(url);
+                }
+            } catch (uploadError) {
+                console.error("Error uploading images:", uploadError);
+                this.displayMessage("Error al subir imágenes: " + uploadError.message, false);
+                // We continue saving the record even if image upload fails?
+                // Better to stop or warn. For now, let's stop.
+                this.submitText.textContent = this.editingRecordId ? 'Actualizar Registro' : 'Registrar Accidente';
+                this.loadingSpinner?.classList.add('hidden');
+                if (this.submitBtn) this.submitBtn.disabled = false;
+                return;
+            }
+        }
+
         const formData = new FormData(this.form);
         const data = {
             fecha: formData.get('fecha'),
@@ -542,15 +600,20 @@ class SiniestrosApp {
         if (this.editingRecordId) {
             data.updatedAt = serverTimestamp();
             data.updatedBy = this.currentUser.email;
+
+            // Append new images to existing ones if editing
+            const existingRecord = this.allAccidentRecords.find(r => r.id === this.editingRecordId);
+            const currentImages = existingRecord?.images || [];
+            data.images = [...currentImages, ...uploadedImageUrls];
+
         } else {
             data.createdAt = serverTimestamp();
             data.recordedBy = this.currentUser.email;
             data.recordedByUid = this.currentUser.uid;
+            data.images = uploadedImageUrls;
         }
 
-        this.submitText.textContent = this.editingRecordId ? 'Actualizando...' : 'Guardando...';
-        this.loadingSpinner?.classList.remove('hidden');
-        if (this.submitBtn) this.submitBtn.disabled = true;
+        this.submitText.textContent = this.editingRecordId ? 'Actualizando datos...' : 'Guardando...';
 
         try {
             if (this.editingRecordId) {
@@ -561,6 +624,7 @@ class SiniestrosApp {
                 await addDoc(collection(this.db, 'shared_accident_reports'), data);
                 this.form.reset();
                 this.setInitialDateTime();
+                if(this.imageInput) this.imageInput.value = '';
                 document.querySelectorAll('input[name="vehicles_involved"]:checked').forEach(cb => cb.checked = false);
                 this.mapManager.resetFormMap();
                 this.displayMessage("Registro exitoso. Nuevo accidente guardado.", true);
@@ -659,6 +723,48 @@ class SiniestrosApp {
         this.renderStatistics(this.filteredStats);
     }
 
+    // --- Lightbox Functions ---
+
+    openLightbox(recordId, index) {
+        const record = this.allAccidentRecords.find(r => r.id === recordId);
+        if (!record || !record.images || record.images.length === 0) return;
+
+        this.lightboxImages = record.images;
+        this.lightboxIndex = index;
+
+        this.updateLightboxImage();
+        this.lightbox.classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
+    }
+
+    closeLightbox() {
+        this.lightbox.classList.add('hidden');
+        this.lightboxImages = [];
+        this.lightboxIndex = 0;
+        document.body.style.overflow = '';
+    }
+
+    changeLightboxImage(direction) {
+        if (this.lightboxImages.length === 0) return;
+
+        this.lightboxIndex += direction;
+
+        // Loop around
+        if (this.lightboxIndex < 0) this.lightboxIndex = this.lightboxImages.length - 1;
+        if (this.lightboxIndex >= this.lightboxImages.length) this.lightboxIndex = 0;
+
+        this.updateLightboxImage();
+    }
+
+    updateLightboxImage() {
+        if (!this.lightboxImg) return;
+        this.lightboxImg.src = this.lightboxImages[this.lightboxIndex];
+
+        if (this.lightboxCounter) {
+            this.lightboxCounter.textContent = `${this.lightboxIndex + 1} / ${this.lightboxImages.length}`;
+        }
+    }
+
     // --- Exports ---
 
     exportToCSV() {
@@ -669,12 +775,13 @@ class SiniestrosApp {
             return;
         }
 
-        const headers = ["Fecha", "Ubicación", "Tipo de Siniestro", "Gravedad", "Tipo de Vía", "Total Vehículos", "Vehículos Involucrados", "Descripción", "Registrado Por"];
+        const headers = ["Fecha", "Ubicación", "Tipo de Siniestro", "Gravedad", "Tipo de Vía", "Total Vehículos", "Vehículos Involucrados", "Descripción", "Registrado Por", "Imágenes"];
 
         const rows = recordsToExport.map(record => {
             const date = record.fecha ? new Date(record.fecha).toLocaleString('es-AR') : 'N/A';
             const vehicles = (record.vehicles_involved || []).join('; ');
             const description = (record.descripcion || '').replace(/(\r\n|\n|\r)/gm, " ");
+            const images = (record.images || []).join('; ');
 
             return [
                 `"${date}"`,
@@ -685,7 +792,8 @@ class SiniestrosApp {
                 `"${record.vehiculos_total || 0}"`,
                 `"${vehicles}"`,
                 `"${description}"`,
-                `"${record.recordedBy || ''}"`
+                `"${record.recordedBy || ''}"`,
+                `"${images}"`
             ].join(',');
         });
 
@@ -948,7 +1056,7 @@ class SiniestrosApp {
             element.className = recordWrapperClass;
 
             const actionButtons = `
-                <div class="flex space-x-2 mt-1 sm:mt-0">
+                <div class="flex space-x-2">
                     <button onclick="handleEditRecord('${record.id}')" class="text-blue-600 hover:text-blue-800 p-1" title="Editar">
                         ✏️
                     </button>
@@ -959,19 +1067,33 @@ class SiniestrosApp {
             `;
 
             const showLocationBtn = record.latitude && record.longitude ?
-                `<button onclick="showRecordOnMap(${record.latitude}, ${record.longitude}, '${record.ubicacion}')" class="text-blue-600 hover:text-blue-800 text-xs font-medium">📍 Ver en Mapa</button>` : '';
+                `<button onclick="showRecordOnMap(${record.latitude}, ${record.longitude}, '${record.ubicacion}')" class="text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center">
+                    📍 Ver en Mapa
+                </button>` : '';
+
+            // Image Generation
+            let imagesHtml = '';
+            if (record.images && record.images.length > 0) {
+                imagesHtml = `
+                    <div class="flex gap-2 mt-3 overflow-x-auto pb-2">
+                        ${record.images.map((url, idx) => `
+                            <img src="${url}" 
+                                class="accident-img rounded-md cursor-pointer hover:opacity-80 transition border border-gray-200" 
+                                onclick="window.openLightbox('${record.id}', ${idx})"
+                                loading="lazy">
+                        `).join('')}
+                    </div>
+                `;
+            }
 
             element.innerHTML = `
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 mb-2 space-y-1 sm:space-y-0">
-                    <div class="flex justify-between w-full sm:w-auto items-center">
-                        <span class="text-xs sm:text-sm text-gray-400 font-medium mr-2">${date}</span>
-                        <div class="sm:hidden">${actionButtons}</div>
-                    </div>
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-2">
-                        <span class="font-bold text-base sm:text-lg text-gray-800">${record.ubicacion}</span>
-                        ${showLocationBtn}
-                    </div>
-                     <div class="hidden sm:block">${actionButtons}</div>
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs sm:text-sm text-gray-400 font-medium">${date}</span>
+                    ${showLocationBtn}
+                </div>
+
+                <div class="mb-2">
+                    <span class="font-bold text-base sm:text-lg text-gray-800 block">${record.ubicacion}</span>
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 text-xs sm:text-sm gap-2">
@@ -985,12 +1107,18 @@ class SiniestrosApp {
                     <p class="text-xs font-semibold text-gray-500 mb-1">Vehículos Implicados:</p>
                     <div class="flex flex-wrap">${vehicleBadges}</div>
                 </div>
+                
+                ${imagesHtml}
 
                 <div class="mt-2 text-xs text-gray-500 border-t pt-2">
                     <p><strong>Registrado por:</strong> ${recordedBy}</p>
                 </div>
 
                 ${record.descripcion ? `<p class="mt-3 text-gray-600 italic text-xs sm:text-sm border-t pt-2">${record.descripcion}</p>` : ''}
+
+                <div class="flex justify-end mt-2 pt-2 border-t border-gray-100">
+                    ${actionButtons}
+                </div>
             `;
             this.recordsList.appendChild(element);
         });

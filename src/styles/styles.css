@@ -87,6 +87,18 @@ body {
 .severity-leve { background-color: #D97706; }
 .severity-sin { background-color: #059669; }
 
+/* New styles for thumbnails */
+.accident-img {
+    width: 4rem; /* w-16 */
+    height: 4rem; /* h-16 */
+    object-fit: cover;
+}
+
+/* Lightbox Fade Transition (Optional polish) */
+#lightbox {
+    transition: opacity 0.3s ease;
+}
+
 @media (max-width: 640px) {
     .badge {
         font-size: 0.6rem;
@@ -113,12 +125,10 @@ body {
     }
 }
 
-/* Map container fixes */
 .leaflet-container {
     background: #f8fafc;
 }
 
-/* Ensure map controls are accessible on mobile */
 .leaflet-control-zoom {
     margin-left: 10px !important;
     margin-top: 10px !important;
