@@ -23,7 +23,8 @@ import {
     getStorage,
     ref,
     uploadBytes,
-    getDownloadURL
+    getDownloadURL,
+    deleteObject
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
 setLogLevel('Debug');
@@ -40,6 +41,8 @@ class SiniestrosApp {
         this.allAccidentRecords = [];
         this.filteredHistory = [];
         this.filteredStats = [];
+
+        this.imagesToDelete = [];
 
         this.editingRecordId = null;
         this.currentPage = 1;
@@ -71,6 +74,7 @@ class SiniestrosApp {
         this.formTitle = document.getElementById('form-title');
         this.cancelEditBtn = document.getElementById('cancel-edit-btn');
         this.imageInput = document.getElementById('image-input');
+        this.imagePreviewContainer = document.getElementById('image-preview-container');
 
         this.recordsList = document.getElementById('records-list');
         this.paginationControls = document.getElementById('pagination-controls');
@@ -143,6 +147,9 @@ class SiniestrosApp {
         }
         if (this.form) {
             this.form.addEventListener('submit', (e) => this.handleFormSubmit(e));
+        }
+        if (this.imageInput) {
+            this.imageInput.addEventListener('change', () => this.handleImageInput());
         }
         if (this.cancelEditBtn) {
             this.cancelEditBtn.addEventListener('click', () => this.cancelEditing());
@@ -429,6 +436,62 @@ class SiniestrosApp {
         return Array.from(checkboxes).map(cb => cb.value);
     }
 
+    handleImageInput() {
+        this.renderFormPreviews();
+    }
+
+    renderFormPreviews() {
+        if (!this.imagePreviewContainer) return;
+        this.imagePreviewContainer.innerHTML = '';
+
+        if (this.editingRecordId) {
+            const record = this.allAccidentRecords.find(r => r.id === this.editingRecordId);
+            if (record && record.images) {
+                record.images.forEach((url, index) => {
+                    if (this.imagesToDelete.includes(url)) return;
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'relative inline-block';
+
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.className = 'accident-img rounded-md border border-gray-200 object-cover';
+                    img.onclick = () => window.openLightbox(record.id, index);
+                    img.style.cursor = 'pointer';
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '&times;';
+                    deleteBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md hover:bg-red-600 focus:outline-none';
+                    deleteBtn.type = 'button';
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        this.imagesToDelete.push(url);
+                        this.renderFormPreviews();
+                    };
+
+                    wrapper.appendChild(img);
+                    wrapper.appendChild(deleteBtn);
+                    this.imagePreviewContainer.appendChild(wrapper);
+                });
+            }
+        }
+
+        if (this.imageInput && this.imageInput.files) {
+            Array.from(this.imageInput.files).forEach(file => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative inline-block';
+
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.className = 'accident-img rounded-md border border-gray-200 object-cover opacity-90';
+                img.onload = () => URL.revokeObjectURL(img.src);
+
+                wrapper.appendChild(img);
+                this.imagePreviewContainer.appendChild(wrapper);
+            });
+        }
+    }
+
     // --- Editing & Deleting ---
 
     async handleDeleteRecord(id) {
@@ -437,6 +500,18 @@ class SiniestrosApp {
         }
 
         try {
+            const record = this.allAccidentRecords.find(r => r.id === id);
+            if (record && record.images && record.images.length > 0) {
+                try {
+                    await Promise.all(record.images.map(url => {
+                        const imageRef = ref(this.storage, url);
+                        return deleteObject(imageRef);
+                    }));
+                } catch (imgError) {
+                    console.warn("Error deleting images:", imgError);
+                }
+            }
+
             await deleteDoc(doc(this.db, 'shared_accident_reports', id));
             this.displayMessage("Registro eliminado correctamente.", true);
 
@@ -455,6 +530,7 @@ class SiniestrosApp {
         if (!record) return;
 
         this.editingRecordId = id;
+        this.imagesToDelete = [];
 
         if (this.formTitle) this.formTitle.textContent = "Editar Accidente";
         if (this.submitText) this.submitText.textContent = "Actualizar Registro";
@@ -487,6 +563,8 @@ class SiniestrosApp {
             cb.checked = record.vehicles_involved ? record.vehicles_involved.includes(cb.value) : false;
         });
 
+        this.renderFormPreviews();
+
         this.mapManager.selectedLatLng = { lat: record.latitude, lng: record.longitude };
 
         if (this.mapManager.formMap) {
@@ -507,11 +585,13 @@ class SiniestrosApp {
 
     cancelEditing() {
         this.editingRecordId = null;
+        this.imagesToDelete = [];
         this.form.reset();
         this.setInitialDateTime();
         this.mapManager.resetFormMap();
         // Clear file input
         if (this.imageInput) this.imageInput.value = '';
+        if (this.imagePreviewContainer) this.imagePreviewContainer.innerHTML = '';
 
         if (this.formTitle) this.formTitle.textContent = "Registrar Nuevo Accidente";
         if (this.submitText) this.submitText.textContent = "Registrar Accidente";
@@ -598,13 +678,21 @@ class SiniestrosApp {
         };
 
         if (this.editingRecordId) {
+            if (this.imagesToDelete.length > 0) {
+                try {
+                    await Promise.all(this.imagesToDelete.map(url => {
+                        const imageRef = ref(this.storage, url);
+                        return deleteObject(imageRef);
+                    }));
+                } catch (e) { console.warn('Error deleting removed images from storage', e); }
+            }
+
             data.updatedAt = serverTimestamp();
             data.updatedBy = this.currentUser.email;
 
-            // Append new images to existing ones if editing
             const existingRecord = this.allAccidentRecords.find(r => r.id === this.editingRecordId);
-            const currentImages = existingRecord?.images || [];
-            data.images = [...currentImages, ...uploadedImageUrls];
+            const keptImages = (existingRecord?.images || []).filter(url => !this.imagesToDelete.includes(url));
+            data.images = [...keptImages, ...uploadedImageUrls];
 
         } else {
             data.createdAt = serverTimestamp();
@@ -625,6 +713,7 @@ class SiniestrosApp {
                 this.form.reset();
                 this.setInitialDateTime();
                 if(this.imageInput) this.imageInput.value = '';
+                if(this.imagePreviewContainer) this.imagePreviewContainer.innerHTML = '';
                 document.querySelectorAll('input[name="vehicles_involved"]:checked').forEach(cb => cb.checked = false);
                 this.mapManager.resetFormMap();
                 this.displayMessage("Registro exitoso. Nuevo accidente guardado.", true);

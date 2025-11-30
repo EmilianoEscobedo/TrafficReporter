@@ -228,6 +228,19 @@ class MapManager {
             'Sin Lesiones': 'severity-sin'
         }[record.gravedad] || 'severity-sin';
 
+        let imagesHtml = '';
+        if (record.images && record.images.length > 0) {
+            imagesHtml = `<div class="flex gap-1 mt-2 overflow-x-auto pb-1 border-t pt-2">
+                ${record.images.map((url, idx) => `
+                    <img src="${url}" 
+                        class="w-10 h-10 object-cover rounded-md cursor-pointer border border-gray-200 hover:opacity-80 transition"
+                        onclick="window.openLightbox('${record.id}', ${idx})"
+                        title="Ver imagen"
+                    >
+                `).join('')}
+            </div>`;
+        }
+
         const popupContent = `
             <div class="accident-popup">
                 <h4>🚨 ${record.ubicacion || 'Ubicación no disponible'}</h4>
@@ -237,6 +250,7 @@ class MapManager {
                 <p><strong>🛣️ Vía:</strong> ${record.tipo_via}</p>
                 <p><strong>🚙 Vehículos:</strong> ${record.vehiculos_total || 0}</p>
                 ${vehicleBadges ? `<p><strong>📋 Involucrados:</strong><br>${vehicleBadges}</p>` : ''}
+                ${imagesHtml}
                 ${record.descripcion ? `<p><strong>📝 Notas:</strong> ${record.descripcion}</p>` : ''}
                 <p style="margin-top: 8px; font-size: 10px; color: #9CA3AF;"><strong>Registrado por:</strong> ${record.recordedBy || 'N/A'}</p>
             </div>
