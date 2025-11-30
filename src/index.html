@@ -17,9 +17,21 @@
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="styles/styles.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* PDF Export helper to prevent cutting components */
+        .pdf-page-break {
+            page-break-inside: avoid;
+        }
+        /* Leaflet Fix for html2canvas */
+        .leaflet-container {
+            z-index: 0; /* Helps with stacking context in exports */
+        }
+    </style>
 </head>
 <body>
-<div class="min-h-screen pb-16">
+<div class="min-h-screen pb-24">
     <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
             <div class="text-center">
@@ -73,7 +85,7 @@
             </div>
         </header>
 
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
             <div id="stats-container" class="bg-white card rounded-xl p-4 sm:p-6 mb-6 shadow-md border-t-4 border-teal-500">
                 <div class="text-xl sm:text-2xl font-bold text-teal-600 text-center">
                     Accidentes Registrados: <span id="accident-count" class="text-2xl sm:text-4xl ml-1 sm:ml-2">0</span>
@@ -88,10 +100,12 @@
 
             <div id="content-registro" class="space-y-6 sm:space-y-8">
                 <div id="form-container" class="bg-white card rounded-xl p-4 sm:p-6">
-                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Registrar Nuevo Accidente</h2>
-                    <form id="accident-form">
-                        <input type="hidden" id="ubicacion" name="ubicacion" value="">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h2 id="form-title" class="text-xl sm:text-2xl font-semibold text-gray-800">Registrar Nuevo Accidente</h2>
+                        <button id="cancel-edit-btn" class="hidden text-sm text-gray-500 hover:text-gray-700 underline">Cancelar Edición</button>
+                    </div>
 
+                    <form id="accident-form">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha y Hora</label>
@@ -140,10 +154,20 @@
                         <div class="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 space-y-2 sm:space-y-0">
                                 <label class="block text-sm font-medium text-blue-800">Seleccione una ubicación en el mapa:</label>
-                                <button type="button" id="locate-me-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs font-medium">
-                                    📍 Mi Ubicación
+                                <div class="flex gap-2">
+                                    <button type="button" id="locate-me-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-xs font-medium">
+                                        📍 Mi Ubicación
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-2 mb-3">
+                                <input type="text" id="manual-address" name="manual-address" placeholder="Ej: Lagos 999" class="block w-full rounded-lg border-gray-300 shadow-sm p-2 text-sm focus:ring-teal-500 focus:border-teal-500">
+                                <button type="button" id="search-address-btn" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                                    Buscar
                                 </button>
                             </div>
+
                             <div id="form-map" class="h-48 sm:h-64 rounded-lg border border-blue-300"></div>
                             <div class="mt-2 space-y-1">
                                 <div class="text-xs text-blue-600">
@@ -190,6 +214,12 @@
                         </div>
 
                         <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Imágenes:</label>
+                            <input type="file" id="image-input" multiple accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"/>
+                            <div id="image-preview-container" class="flex flex-wrap gap-2 mt-2"></div>
+                        </div>
+
+                        <div class="mb-6">
                             <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-1">Descripción Breve / Notas</label>
                             <textarea id="descripcion" name="descripcion" rows="3" placeholder="Detalles clave, factores contribuyentes o fuentes..." class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 text-sm focus:ring-teal-500 focus:border-teal-500"></textarea>
                         </div>
@@ -203,18 +233,70 @@
                 </div>
 
                 <div class="bg-white card rounded-xl p-4 sm:p-6">
-                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Historial de Registros</h2>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-2 gap-2">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Historial de Registros</h2>
+                        <button id="export-csv-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm font-medium flex items-center w-full sm:w-auto justify-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Exportar CSV
+                        </button>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-200">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <span class="text-xs sm:text-sm font-semibold text-gray-600 w-full sm:w-auto">Filtrar:</span>
+
+                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                                <input type="date" id="history-start" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                                <span class="text-gray-400">-</span>
+                                <input type="date" id="history-end" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                            </div>
+
+                            <select id="history-vehicle" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                                <option value="">Vehículo...</option>
+                                <option value="Auto">Auto</option>
+                                <option value="Moto">Moto</option>
+                                <option value="Camioneta">Camioneta</option>
+                                <option value="Utilitario">Utilitario</option>
+                                <option value="Camión">Camión</option>
+                                <option value="Bicicleta">Bicicleta</option>
+                                <option value="Peatón">Peatón</option>
+                            </select>
+
+                            <select id="history-severity" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                                <option value="">Gravedad...</option>
+                                <option value="Sin Lesiones">Sin Lesiones</option>
+                                <option value="Lesiones Leves">Lesiones Leves</option>
+                                <option value="Lesiones Graves">Lesiones Graves</option>
+                                <option value="Fatal">Fatal</option>
+                            </select>
+
+                            <select id="history-road" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                                <option value="">Vía...</option>
+                                <option value="Calle/Pasaje simple">Calle/Pasaje simple</option>
+                                <option value="Avenida SIN Boulevard">Avenida SIN Boulevard</option>
+                                <option value="Avenida CON Boulevard (Alto Riesgo)">Avenida CON Boulevard</option>
+                            </select>
+
+                            <button id="history-clear-btn" class="text-xs text-teal-600 hover:text-teal-800 underline ml-auto sm:ml-0">Limpiar</button>
+                        </div>
+                    </div>
+
                     <div id="records-list" class="space-y-4">
                         <p id="empty-state" class="text-center text-gray-500 italic">No hay registros de accidentes aún.</p>
                     </div>
+                    <div id="pagination-controls" class="flex justify-center items-center mt-6 space-x-2"></div>
                 </div>
             </div>
 
             <div id="content-mapa" class="hidden">
-                <div class="bg-white card rounded-xl p-4 sm:p-6">
+                <div id="map-card" class="bg-white card rounded-xl p-4 sm:p-6">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
                         <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Mapa de Accidentes</h2>
-                        <div class="flex flex-wrap gap-2">
+                        <div id="map-actions" class="flex flex-wrap gap-2">
+                            <button id="export-map-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-xs font-medium flex items-center">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                Exportar PDF
+                            </button>
                             <button id="show-all-accidents" class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded-md text-xs font-medium">
                                 Mostrar Todos
                             </button>
@@ -248,31 +330,124 @@
             </div>
 
             <div id="content-estadisticas" class="hidden bg-white card rounded-xl p-4 sm:p-6">
-                <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-800 border-b pb-2">Análisis de Datos Agregados</h2>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-2 gap-2">
+                    <h2 class="text-xl sm:text-2xl font-semibold text-gray-800">Análisis de Datos Agregados</h2>
+                    <button id="export-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm font-medium flex items-center w-full sm:w-auto justify-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        Exportar PDF
+                    </button>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-3 mb-6 border border-gray-200">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span class="text-xs sm:text-sm font-semibold text-gray-600 w-full sm:w-auto">Filtrar:</span>
+
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <input type="date" id="stats-start" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                            <span class="text-gray-400">-</span>
+                            <input type="date" id="stats-end" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                        </div>
+
+                        <select id="stats-vehicle" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                            <option value="">Vehículo...</option>
+                            <option value="Auto">Auto</option>
+                            <option value="Moto">Moto</option>
+                            <option value="Camioneta">Camioneta</option>
+                            <option value="Utilitario">Utilitario</option>
+                            <option value="Camión">Camión</option>
+                            <option value="Bicicleta">Bicicleta</option>
+                            <option value="Peatón">Peatón</option>
+                        </select>
+
+                        <select id="stats-severity" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                            <option value="">Gravedad...</option>
+                            <option value="Sin Lesiones">Sin Lesiones</option>
+                            <option value="Lesiones Leves">Lesiones Leves</option>
+                            <option value="Lesiones Graves">Lesiones Graves</option>
+                            <option value="Fatal">Fatal</option>
+                        </select>
+
+                        <select id="stats-road" class="border border-gray-300 rounded px-2 py-1 text-xs w-full sm:w-auto">
+                            <option value="">Vía...</option>
+                            <option value="Calle/Pasaje simple">Calle/Pasaje simple</option>
+                            <option value="Avenida SIN Boulevard">Avenida SIN Boulevard</option>
+                            <option value="Avenida CON Boulevard (Alto Riesgo)">Avenida CON Boulevard</option>
+                        </select>
+
+                        <button id="stats-clear-btn" class="text-xs text-teal-600 hover:text-teal-800 underline ml-auto sm:ml-0">Limpiar</button>
+                    </div>
+                </div>
+
                 <div id="statistics-output" class="space-y-6 sm:space-y-8">
                     <div class="text-center text-gray-500 italic" id="stats-loading">Cargando datos o esperando registros...</div>
 
-                    <section id="stats-via" class="hidden">
-                        <h3 class="text-lg sm:text-xl font-bold text-gray-700 mb-3 border-l-4 border-teal-500 pl-3">1. Frecuencia por Tipo de Vía</h3>
-                        <div id="chart-via" class="space-y-2"></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <section id="stats-via" class="hidden pdf-page-break">
+                            <h3 class="text-base font-bold text-gray-700 mb-2 border-l-4 border-teal-500 pl-2">1. Frecuencia por Tipo de Vía</h3>
+                            <div id="chart-via" class="space-y-2"></div>
+                        </section>
+
+                        <section id="stats-gravedad" class="hidden pdf-page-break">
+                            <h3 class="text-base font-bold text-gray-700 mb-2 border-l-4 border-teal-500 pl-2">2. Distribución por Gravedad</h3>
+                            <div id="chart-gravedad" class="space-y-2"></div>
+                        </section>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <section id="stats-vehiculos" class="hidden pdf-page-break">
+                            <h3 class="text-base font-bold text-gray-700 mb-2 border-l-4 border-teal-500 pl-2">3. Vehículos más Implicados</h3>
+                            <div id="chart-vehiculos" class="space-y-2"></div>
+                        </section>
+
+                        <section id="stats-time" class="hidden pdf-page-break">
+                            <h3 class="text-base font-bold text-gray-700 mb-2 border-l-4 border-teal-500 pl-2">4. Hora del Siniestro</h3>
+                            <div id="chart-time" class="space-y-2"></div>
+                        </section>
+                    </div>
+
+                    <section id="stats-day" class="hidden pdf-page-break">
+                        <h3 class="text-base font-bold text-gray-700 mb-2 border-l-4 border-teal-500 pl-2">5. Siniestros por Día de la Semana</h3>
+                        <div id="chart-day" class="space-y-2"></div>
                     </section>
 
-                    <section id="stats-gravedad" class="hidden">
-                        <h3 class="text-lg sm:text-xl font-bold text-gray-700 mb-3 border-l-4 border-teal-500 pl-3">2. Distribución por Gravedad</h3>
-                        <div id="chart-gravedad" class="space-y-2"></div>
-                    </section>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <section id="stats-month" class="hidden pdf-page-break">
+                            <h3 class="text-base font-bold text-gray-700 mb-2 border-l-4 border-teal-500 pl-2">6. Siniestros por Mes</h3>
+                            <div id="chart-month" class="space-y-2"></div>
+                        </section>
 
-                    <section id="stats-vehiculos" class="hidden">
-                        <h3 class="text-lg sm:text-xl font-bold text-gray-700 mb-3 border-l-4 border-teal-500 pl-3">3. Vehículos más Implicados</h3>
-                        <div id="chart-vehiculos" class="space-y-2"></div>
-                    </section>
+                        <section id="stats-year" class="hidden pdf-page-break">
+                            <h3 class="text-base font-bold text-gray-700 mb-2 border-l-4 border-teal-500 pl-2">7. Siniestros por Año</h3>
+                            <div id="chart-year" class="space-y-2"></div>
+                        </section>
+                    </div>
+
                 </div>
             </div>
         </main>
+
+        <footer class="fixed bottom-0 left-0 w-full bg-gray-100 border-t border-gray-200 text-center text-xs text-gray-500 py-3 z-40">
+            Sistema de Registro de Siniestros Viales - DOE Prensa ®
+        </footer>
     </div>
 </div>
 
-<!-- Sticky PWA Install Prompt -->
+<div id="lightbox" class="hidden fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
+    <button id="lightbox-close" class="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 focus:outline-none">&times;</button>
+
+    <div class="relative w-full max-w-4xl max-h-screen flex items-center justify-center">
+        <button id="lightbox-prev" class="absolute left-4 text-white text-4xl hover:text-gray-300 focus:outline-none p-2 bg-black bg-opacity-50 rounded-full">&#10094;</button>
+
+        <img id="lightbox-img" src="" class="max-w-full max-h-[85vh] object-contain shadow-2xl rounded-lg" alt="Full size image">
+
+        <button id="lightbox-next" class="absolute right-4 text-white text-4xl hover:text-gray-300 focus:outline-none p-2 bg-black bg-opacity-50 rounded-full">&#10095;</button>
+    </div>
+
+    <div id="lightbox-counter" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 px-3 py-1 rounded-full">
+        1 / 1
+    </div>
+</div>
+
 <div id="pwa-install-prompt" class="hidden fixed bottom-0 left-0 right-0 bg-blue-600 text-white p-4 shadow-lg z-[9999]">
     <div class="max-w-md mx-auto flex items-center justify-between">
         <div class="flex items-center">

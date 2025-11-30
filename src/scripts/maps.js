@@ -4,9 +4,13 @@ class MapManager {
         this.mainMap = null;
         this.selectedLatLng = null;
         this.accidentMarkers = [];
-        this.defaultLat = -34.6118;
-        this.defaultLng = -58.3960;
+        this.defaultLat = -35.44451575376546;
+        this.defaultLng = -60.884165667793056;
         this.defaultZoom = 13;
+
+        this.resizeObserver = new ResizeObserver(() => {
+            this.invalidateSize();
+        });
     }
 
     initializeMaps() {
@@ -17,14 +21,13 @@ class MapManager {
     initFormMap() {
         const formMapElement = document.getElementById('form-map');
         if (!this.formMap && formMapElement) {
-            this.formMap = L.map('form-map').setView([this.defaultLat, this.defaultLng], this.defaultZoom);
+            this.formMap = L.map('form-map', { preferCanvas: true }).setView([this.defaultLat, this.defaultLng], this.defaultZoom);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(this.formMap);
 
             this.formMap.on('click', async (e) => {
                 this.selectedLatLng = e.latlng;
-                await this.updateSelectedLocation(e.latlng);
 
                 this.formMap.eachLayer(layer => {
                     if (layer instanceof L.Marker) {
@@ -32,28 +35,34 @@ class MapManager {
                     }
                 });
 
-                L.marker([e.latlng.lat, e.latlng.lng])
-                    .addTo(this.formMap)
-                    .bindPopup('📍 Ubicación seleccionada')
-                    .openPopup();
+                const tempMarker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(this.formMap);
+
+                const address = await this.updateSelectedLocation(e.latlng, true);
+
+                tempMarker.bindPopup(address || '📍 Ubicación seleccionada').openPopup();
             });
+
+            this.resizeObserver.observe(formMapElement);
         }
     }
 
     initMainMap() {
         const mainMapElement = document.getElementById('main-map');
         if (!this.mainMap && mainMapElement) {
-            this.mainMap = L.map('main-map').setView([this.defaultLat, this.defaultLng], this.defaultZoom);
+            this.mainMap = L.map('main-map', { preferCanvas: true }).setView([this.defaultLat, this.defaultLng], this.defaultZoom);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(this.mainMap);
+
+            this.resizeObserver.observe(mainMapElement);
         }
     }
 
-    async updateSelectedLocation(latlng) {
+    async updateSelectedLocation(latlng, updateInput = false) {
         const coordsSpan = document.getElementById('selected-coords');
         const addressSpan = document.getElementById('selected-address');
-        const hiddenLocationInput = document.getElementById('ubicacion');
+        const manualInput = document.getElementById('manual-address');
+        let addressResult = '';
 
         if (coordsSpan) {
             coordsSpan.textContent = `Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}`;
@@ -66,9 +75,10 @@ class MapManager {
 
         try {
             const address = await window.GeocodingService.reverseGeocode(latlng.lat, latlng.lng);
+            addressResult = address;
 
-            if (hiddenLocationInput) {
-                hiddenLocationInput.value = address;
+            if (updateInput && manualInput) {
+                manualInput.value = address;
             }
 
             if (addressSpan) {
@@ -80,9 +90,10 @@ class MapManager {
         } catch (error) {
             console.warn('Could not get address:', error);
             const fallbackAddress = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+            addressResult = fallbackAddress;
 
-            if (hiddenLocationInput) {
-                hiddenLocationInput.value = fallbackAddress;
+            if (updateInput && manualInput) {
+                manualInput.value = fallbackAddress;
             }
 
             if (addressSpan) {
@@ -90,6 +101,7 @@ class MapManager {
                 addressSpan.className = 'italic text-orange-600';
             }
         }
+        return addressResult;
     }
 
     async getCurrentLocation() {
@@ -104,20 +116,18 @@ class MapManager {
                 const lng = position.coords.longitude;
 
                 this.selectedLatLng = { lat, lng };
-                await this.updateSelectedLocation({ lat, lng });
+                const address = await this.updateSelectedLocation({ lat, lng }, true);
 
                 if (this.formMap) {
                     this.formMap.setView([lat, lng], 16);
-
                     this.formMap.eachLayer(layer => {
                         if (layer instanceof L.Marker) {
                             this.formMap.removeLayer(layer);
                         }
                     });
-
                     L.marker([lat, lng])
                         .addTo(this.formMap)
-                        .bindPopup('📍 Tu ubicación')
+                        .bindPopup(address || '📍 Tu ubicación')
                         .openPopup();
                 }
             } catch (error) {
@@ -133,6 +143,36 @@ class MapManager {
                 window.displayMessage('La geolocalización no está soportada en este navegador.', false);
             }
         }
+    }
+
+    async searchLocation(query) {
+        const result = await window.GeocodingService.forwardGeocode(query);
+        if (result) {
+            const lat = parseFloat(result.lat);
+            const lng = parseFloat(result.lon);
+            const latlng = { lat, lng };
+
+            this.selectedLatLng = latlng;
+
+            await this.updateSelectedLocation(latlng, false);
+
+            if (this.formMap) {
+                this.formMap.setView([lat, lng], 16);
+
+                this.formMap.eachLayer(layer => {
+                    if (layer instanceof L.Marker) {
+                        this.formMap.removeLayer(layer);
+                    }
+                });
+
+                L.marker([lat, lng])
+                    .addTo(this.formMap)
+                    .bindPopup(result.display_name || '📍 Ubicación buscada')
+                    .openPopup();
+            }
+            return true;
+        }
+        return false;
     }
 
     getCurrentPositionPromise() {
@@ -159,6 +199,7 @@ class MapManager {
         if (!record.latitude || !record.longitude) return null;
 
         const color = this.getMarkerColor(record.gravedad);
+
         const marker = L.circleMarker([record.latitude, record.longitude], {
             radius: 8,
             fillColor: color,
@@ -187,6 +228,19 @@ class MapManager {
             'Sin Lesiones': 'severity-sin'
         }[record.gravedad] || 'severity-sin';
 
+        let imagesHtml = '';
+        if (record.images && record.images.length > 0) {
+            imagesHtml = `<div class="flex gap-1 mt-2 overflow-x-auto pb-1 border-t pt-2">
+                ${record.images.map((url, idx) => `
+                    <img src="${url}" 
+                        class="w-10 h-10 object-cover rounded-md cursor-pointer border border-gray-200 hover:opacity-80 transition"
+                        onclick="window.openLightbox('${record.id}', ${idx})"
+                        title="Ver imagen"
+                    >
+                `).join('')}
+            </div>`;
+        }
+
         const popupContent = `
             <div class="accident-popup">
                 <h4>🚨 ${record.ubicacion || 'Ubicación no disponible'}</h4>
@@ -196,6 +250,7 @@ class MapManager {
                 <p><strong>🛣️ Vía:</strong> ${record.tipo_via}</p>
                 <p><strong>🚙 Vehículos:</strong> ${record.vehiculos_total || 0}</p>
                 ${vehicleBadges ? `<p><strong>📋 Involucrados:</strong><br>${vehicleBadges}</p>` : ''}
+                ${imagesHtml}
                 ${record.descripcion ? `<p><strong>📝 Notas:</strong> ${record.descripcion}</p>` : ''}
                 <p style="margin-top: 8px; font-size: 10px; color: #9CA3AF;"><strong>Registrado por:</strong> ${record.recordedBy || 'N/A'}</p>
             </div>
@@ -259,7 +314,7 @@ class MapManager {
         this.selectedLatLng = null;
         const coordsSpan = document.getElementById('selected-coords');
         const addressSpan = document.getElementById('selected-address');
-        const hiddenLocationInput = document.getElementById('ubicacion');
+        const manualInput = document.getElementById('manual-address');
 
         if (coordsSpan) {
             coordsSpan.textContent = 'Seleccione una ubicación en el mapa';
@@ -270,8 +325,8 @@ class MapManager {
             addressSpan.className = 'italic text-gray-600';
         }
 
-        if (hiddenLocationInput) {
-            hiddenLocationInput.value = '';
+        if (manualInput) {
+            manualInput.value = '';
         }
 
         if (this.formMap) {
@@ -284,14 +339,12 @@ class MapManager {
     }
 
     invalidateSize() {
-        setTimeout(() => {
-            if (this.mainMap) {
-                this.mainMap.invalidateSize();
-            }
-            if (this.formMap) {
-                this.formMap.invalidateSize();
-            }
-        }, 100);
+        if (this.mainMap) {
+            this.mainMap.invalidateSize();
+        }
+        if (this.formMap) {
+            this.formMap.invalidateSize();
+        }
     }
 }
 
