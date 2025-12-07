@@ -4,18 +4,29 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build_and_deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      - name: Deploy to Firebase
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Deploy to Firebase Hosting
         uses: w9jds/firebase-action@master
         with:
           args: deploy --only hosting:transito-9-de-julio
         env:
-          PROJECT_ID: "transito-9-de-julio"
+          PROJECT_ID: transito-9-de-julio
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRANSITO_9_DE_JULIO }}
-

@@ -1,0 +1,33 @@
+.trends-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.trends-panel__section {
+    background-color: var(--color-gray-50);
+    padding: 1.5rem;
+    border-radius: var(--border-radius-lg);
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.trends-panel__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-gray-800);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--color-primary);
+}
+
+.trends-panel__chart {
+    height: 300px;
+    position: relative;
+}
+
+@media (min-width: 768px) {
+    .trends-panel__chart {
+        height: 400px;
+    }
+}

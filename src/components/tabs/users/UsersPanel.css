@@ -1,0 +1,209 @@
+.users-panel {
+    background-color: white;
+    border-radius: var(--border-radius-xl);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-md);
+}
+
+.users-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.users-panel__title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-gray-800);
+}
+
+.users-panel__add-btn {
+    background-color: var(--color-primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius-md);
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color var(--transition-fast);
+}
+
+.users-panel__add-btn:hover {
+    background-color: var(--color-primary-hover);
+}
+
+.users-panel__roles-info {
+    background-color: var(--color-gray-50);
+    padding: 1rem;
+    border-radius: var(--border-radius-md);
+    margin-bottom: 1.5rem;
+}
+
+.users-panel__roles-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-gray-700);
+    margin-bottom: 0.5rem;
+}
+
+.users-panel__roles-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.users-panel__roles-list li {
+    padding: 0.25rem 0;
+    font-size: 0.875rem;
+    color: var(--color-gray-600);
+}
+
+.users-panel__table-container {
+    overflow-x: auto;
+}
+
+.users-panel__table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-panel__table th {
+    text-align: left;
+    padding: 0.75rem;
+    background-color: var(--color-gray-100);
+    font-weight: 600;
+    color: var(--color-gray-700);
+    border-bottom: 2px solid var(--color-gray-300);
+}
+
+.users-panel__table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--color-gray-200);
+}
+
+.users-panel__role-select {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--border-radius-sm);
+    font-size: 0.875rem;
+}
+
+.users-panel__role-select:disabled {
+    background-color: var(--color-gray-100);
+    cursor: not-allowed;
+}
+
+.users-panel__delete-btn {
+    background-color: var(--color-error);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--border-radius-sm);
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background-color var(--transition-fast);
+}
+
+.users-panel__delete-btn:hover:not(:disabled) {
+    background-color: #b91c1c;
+}
+
+.users-panel__delete-btn:disabled {
+    background-color: var(--color-gray-300);
+    cursor: not-allowed;
+}
+
+.users-panel__modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.users-panel__modal {
+    background-color: white;
+    border-radius: var(--border-radius-lg);
+    padding: 1.5rem;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: var(--shadow-xl);
+}
+
+.users-panel__modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-gray-800);
+    margin-bottom: 1rem;
+}
+
+.users-panel__modal-content {
+    margin-bottom: 1.5rem;
+}
+
+.users-panel__form-group {
+    margin-bottom: 1rem;
+}
+
+.users-panel__form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-gray-700);
+    margin-bottom: 0.25rem;
+}
+
+.users-panel__input,
+.users-panel__select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--border-radius-md);
+    font-size: 0.875rem;
+}
+
+.users-panel__modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.users-panel__cancel-btn,
+.users-panel__submit-btn {
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius-md);
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color var(--transition-fast);
+}
+
+.users-panel__cancel-btn {
+    background-color: var(--color-gray-200);
+    color: var(--color-gray-700);
+}
+
+.users-panel__cancel-btn:hover {
+    background-color: var(--color-gray-300);
+}
+
+.users-panel__submit-btn {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.users-panel__submit-btn:hover {
+    background-color: var(--color-primary-hover);
+}
+
+.users-panel__loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-gray-600);
+}
