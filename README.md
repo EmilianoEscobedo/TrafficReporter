@@ -1,12 +1,14 @@
-# 🚗 Traffic Reporter
+<div align="center">
+  <h1>Traffic Reporter</h1>
+  <i>Traffic accident management and analysis system for impact journalism, developed for DOE Prensa ®.</i>
+  <br>  <br>
+  <p>
+    Traffic Reporter is a Progressive Web Application (PWA) designed for collecting, visualizing, and analyzing traffic accident data. It enables journalists and analysts to register accidents, visualize them on interactive maps, generate detailed statistics, and export reports in PDF format.
+  </p>
+</div>
 
-Traffic accident management and analysis system for impact journalism, developed for DOE Prensa ®.
 
-## 📋 Description
-
-Traffic Reporter is a Progressive Web Application (PWA) designed for collecting, visualizing, and analyzing traffic accident data. It enables journalists and analysts to register accidents, visualize them on interactive maps, generate detailed statistics, and export reports in PDF format.
-
-## ✨ Key Features
+## ⚙️ Features
 
 ### 🔐 Authentication and Role-Based Access Control
 - **Google Authentication**: Secure login via Google OAuth
@@ -152,14 +154,6 @@ Optimized files will be generated in the `dist/` folder
 - Role validation for every operation
 - Only @gmail.com emails allowed
 - Image size limit (5MB)
-
-## 📱 PWA Features
-
-- Installable on devices
-- Offline functionality (service worker)
-- Adaptive icons for iOS and Android
-- Custom splash screens
-- Smart installation prompt
 
 ---
 
