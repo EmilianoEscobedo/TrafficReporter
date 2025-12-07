@@ -5,6 +5,7 @@
   <p>
     Traffic Reporter is a Progressive Web Application (PWA) designed for collecting, visualizing, and analyzing traffic accident data. It enables journalists and analysts to register accidents, visualize them on interactive maps, generate detailed statistics, and export reports in PDF format.
   </p>
+  <img width="1250" height="976" alt="image" src="https://github.com/user-attachments/assets/5b41ef28-393c-45c1-a0fc-8109609c7e73" />
 </div>
 
 
