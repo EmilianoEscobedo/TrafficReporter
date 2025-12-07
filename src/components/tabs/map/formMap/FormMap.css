@@ -1,0 +1,125 @@
+.form-map {
+    margin-bottom: 1.5rem;
+    background-color: #dbeafe;
+    padding: 1rem;
+    border-radius: var(--border-radius-lg);
+    border: 1px solid #93c5fd;
+}
+
+.form-map__header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.form-map__label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1e40af;
+}
+
+.form-map__locate-btn {
+    background-color: #2563eb;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--border-radius-md);
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+    align-self: flex-start;
+}
+
+.form-map__locate-btn:hover {
+    background-color: #1d4ed8;
+}
+
+.form-map__search {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.form-map__search-input {
+    flex: 1;
+    display: block;
+    width: 100%;
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--color-gray-300);
+    padding: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.form-map__search-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+}
+
+.form-map__search-btn {
+    background-color: var(--color-gray-700);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius-lg);
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+    white-space: nowrap;
+}
+
+.form-map__search-btn:hover:not(:disabled) {
+    background-color: var(--color-gray-800);
+}
+
+.form-map__search-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.form-map__container {
+    height: 12rem;
+    border-radius: var(--border-radius-lg);
+    border: 1px solid #93c5fd;
+    overflow: hidden;
+}
+
+.form-map__map {
+    height: 100%;
+    width: 100%;
+}
+
+.form-map__info {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.form-map__coords {
+    font-size: 0.75rem;
+    color: #2563eb;
+    font-family: monospace;
+}
+
+.form-map__address {
+    font-size: 0.75rem;
+    color: var(--color-gray-600);
+    font-style: italic;
+}
+
+@media (min-width: 640px) {
+    .form-map__header {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .form-map__container {
+        height: 16rem;
+    }
+}

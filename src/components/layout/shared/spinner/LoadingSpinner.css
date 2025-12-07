@@ -1,0 +1,27 @@
+.loading-spinner {
+    border: 2px solid white;
+    border-top-color: var(--color-success);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+.loading-spinner--small {
+    width: 1rem;
+    height: 1rem;
+}
+
+.loading-spinner--medium {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.loading-spinner--large {
+    width: 2rem;
+    height: 2rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
