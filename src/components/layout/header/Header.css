@@ -1,0 +1,127 @@
+.header {
+    background-color: white;
+    box-shadow: var(--shadow-sm);
+    border-bottom: 1px solid var(--color-gray-200);
+}
+
+.header__container {
+    padding: 0.75rem 1rem;
+}
+
+.header__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.header__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.header__logo {
+    height: 2rem;
+    width: auto;
+}
+
+.header__title-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.header__title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--color-gray-900);
+}
+
+.header__subtitle {
+    display: none;
+}
+
+.header__subtitle-text {
+    font-size: 0.875rem;
+    color: var(--color-gray-500);
+}
+
+.header__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.header__user {
+    display: none;
+    text-align: right;
+}
+
+.header__user-label {
+    font-size: 0.75rem;
+    color: var(--color-gray-600);
+}
+
+.header__user-email {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-gray-900);
+    max-width: 8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.header__logout-btn {
+    padding: 0.5rem;
+    color: var(--color-error);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.header__logout-btn:hover {
+    color: #b91c1c;
+}
+
+.header__logout-btn:focus {
+    outline: none;
+}
+
+.header__logout-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.header__user-mobile {
+    display: block;
+    margin-top: 0.5rem;
+}
+
+.header__user-email-mobile {
+    font-size: 0.75rem;
+    color: var(--color-gray-600);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+    .header__user-mobile {
+        display: none;
+    }
+
+    .header__user {
+        display: block;
+    }
+}
+
+@media (min-width: 1024px) {
+    .header__title {
+        font-size: 1.25rem;
+    }
+
+    .header__subtitle {
+        display: block;
+    }
+}

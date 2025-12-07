@@ -1,0 +1,83 @@
+.install-prompt {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background-color: #4169E1;
+    color: white;
+    z-index: 50;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.install-prompt__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    max-width: 100%;
+    gap: 2rem;
+}
+
+.install-prompt__text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.install-prompt__title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.install-prompt__subtitle {
+    font-size: 0.775rem;
+    opacity: 0.9;
+    font-style: italic;
+}
+
+.install-prompt__install-btn {
+    background-color: white;
+    color: #4169E1;
+    border: none;
+    border-radius: var(--border-radius-md);
+    padding: 0.5rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.install-prompt__install-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.install-prompt__close-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.install-prompt__close-btn:hover {
+    opacity: 0.8;
+}
+
+.install-prompt__close-btn svg {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+@media (min-width: 640px) {
+    .install-prompt__content {
+        padding: 1rem 2rem;
+    }
+}

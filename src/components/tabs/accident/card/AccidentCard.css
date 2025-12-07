@@ -1,0 +1,255 @@
+.accident-card {
+    background-color: var(--color-gray-50);
+    padding: 0.75rem;
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--color-gray-200);
+    position: relative;
+}
+
+.accident-card--high-risk {
+    background-color: #fef2f2;
+    border: 2px solid #f87171;
+    box-shadow: var(--shadow-lg);
+}
+
+.accident-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.accident-card__date {
+    font-size: 0.75rem;
+    color: var(--color-gray-400);
+    font-weight: 500;
+}
+
+.accident-card__map-btn {
+    color: var(--color-info);
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.accident-card__map-btn:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.accident-card__location {
+    margin-bottom: 0.5rem;
+}
+
+.accident-card__location-text {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-gray-800);
+    display: block;
+}
+
+.accident-card__details {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.accident-card__details p {
+    margin: 0;
+}
+
+.accident-card__severity {
+    font-weight: 600;
+}
+
+.accident-card__severity--sin {
+    color: var(--color-success);
+}
+
+.accident-card__severity--leves {
+    color: var(--color-warning);
+}
+
+.accident-card__severity--graves {
+    color: #ea580c;
+}
+
+.accident-card__severity--fatal {
+    color: var(--color-error);
+}
+
+.accident-card__road--high-risk {
+    background-color: #fee2e2;
+    color: #991b1b;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--border-radius-full);
+    font-weight: 700;
+    font-size: 0.625rem;
+}
+
+.accident-card__vehicles {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--color-gray-200);
+}
+
+.accident-card__vehicles-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-gray-500);
+    margin-bottom: 0.25rem;
+}
+
+.accident-card__vehicle-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.accident-card__vehicle-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--border-radius-full);
+    font-size: 0.625rem;
+    font-weight: 600;
+    background-color: var(--color-gray-200);
+    color: var(--color-gray-800);
+}
+
+.accident-card__vehicle-badge--moto {
+    background-color: var(--vehicle-moto-bg);
+    color: var(--vehicle-moto-text);
+}
+
+.accident-card__vehicle-badge--bici,
+.accident-card__vehicle-badge--peaton {
+    background-color: var(--vehicle-bici-bg);
+    color: var(--vehicle-bici-text);
+}
+
+.accident-card__vehicle-badge--camion {
+    background-color: var(--vehicle-camion-bg);
+    color: var(--vehicle-camion-text);
+}
+
+.accident-card__vehicle-badge--camioneta {
+    background-color: var(--vehicle-camioneta-bg);
+    color: var(--vehicle-camioneta-text);
+}
+
+.accident-card__vehicle-badge--auto {
+    background-color: var(--vehicle-auto-bg);
+    color: var(--vehicle-auto-text);
+}
+
+.accident-card__vehicle-badge--utilitario {
+    background-color: var(--vehicle-utilitario-bg);
+    color: var(--vehicle-utilitario-text);
+}
+
+.accident-card__vehicle-badge--animal {
+    background-color: var(--vehicle-animal-bg);
+    color: var(--vehicle-animal-text);
+}
+
+.accident-card__images {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.accident-card__image {
+    width: 4rem;
+    height: 4rem;
+    object-fit: cover;
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    border: 1px solid var(--color-gray-200);
+    transition: opacity var(--transition-fast);
+}
+
+.accident-card__image:hover {
+    opacity: 0.8;
+}
+
+.accident-card__footer {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--color-gray-500);
+    border-top: 1px solid var(--color-gray-200);
+    padding-top: 0.5rem;
+}
+
+.accident-card__footer p {
+    margin: 0;
+}
+
+.accident-card__description {
+    margin-top: 0.75rem;
+    color: var(--color-gray-600);
+    font-style: italic;
+    font-size: 0.75rem;
+    border-top: 1px solid var(--color-gray-200);
+    padding-top: 0.5rem;
+}
+
+.accident-card__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--color-gray-100);
+}
+
+.accident-card__action-btn {
+    padding: 0.25rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.125rem;
+    transition: transform var(--transition-fast);
+}
+
+.accident-card__action-btn:hover {
+    transform: scale(1.1);
+}
+
+.accident-card__action-btn--edit {
+    color: var(--color-info);
+}
+
+.accident-card__action-btn--delete {
+    color: var(--color-error);
+}
+
+@media (min-width: 640px) {
+    .accident-card {
+        padding: 1rem;
+    }
+
+    .accident-card__date {
+        font-size: 0.875rem;
+    }
+
+    .accident-card__location-text {
+        font-size: 1.125rem;
+    }
+
+    .accident-card__details {
+        grid-template-columns: repeat(2, 1fr);
+        font-size: 0.875rem;
+    }
+
+    .accident-card__description {
+        font-size: 0.875rem;
+    }
+}

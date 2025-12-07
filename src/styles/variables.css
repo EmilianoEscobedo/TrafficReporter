@@ -1,0 +1,85 @@
+:root {
+    --color-primary: #0f766e;
+    --color-primary-hover: #115e59;
+    --color-primary-light: #5eead4;
+
+    --color-secondary: #4f46e5;
+    --color-secondary-hover: #4338ca;
+
+    --color-success: #059669;
+    --color-success-light: #d1fae5;
+    --color-success-dark: #065f46;
+
+    --color-error: #dc2626;
+    --color-error-light: #fee2e2;
+    --color-error-dark: #991b1b;
+
+    --color-warning: #d97706;
+    --color-warning-light: #fef3c7;
+
+    --color-info: #2563eb;
+    --color-info-light: #dbeafe;
+
+    --color-gray-50: #f9fafb;
+    --color-gray-100: #f3f4f6;
+    --color-gray-200: #e5e7eb;
+    --color-gray-300: #d1d5db;
+    --color-gray-400: #9ca3af;
+    --color-gray-500: #6b7280;
+    --color-gray-600: #4b5563;
+    --color-gray-700: #374151;
+    --color-gray-800: #1f2937;
+    --color-gray-900: #111827;
+
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2xl: 3rem;
+
+    --border-radius-sm: 0.375rem;
+    --border-radius-md: 0.5rem;
+    --border-radius-lg: 0.75rem;
+    --border-radius-xl: 1rem;
+    --border-radius-full: 9999px;
+
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+    --transition-fast: 150ms ease-in-out;
+    --transition-normal: 300ms ease-in-out;
+
+    --vehicle-moto-bg: #fee2e2;
+    --vehicle-moto-text: #991b1b;
+
+    --vehicle-bici-bg: #fef3c7;
+    --vehicle-bici-text: #92400e;
+
+    --vehicle-peaton-bg: #fef3c7;
+    --vehicle-peaton-text: #92400e;
+
+    --vehicle-camion-bg: #dbeafe;
+    --vehicle-camion-text: #1e40af;
+
+    --vehicle-camioneta-bg: #f3e8ff;
+    --vehicle-camioneta-text: #6b21a8;
+
+    --vehicle-auto-bg: #d1fae5;
+    --vehicle-auto-text: #065f46;
+
+    --vehicle-utilitario-bg: #fed7aa;
+    --vehicle-utilitario-text: #9a3412;
+
+    --vehicle-animal-bg: #fce7f3;
+    --vehicle-animal-text: #9f1239;
+
+    --font-weight-light: 300;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+}
