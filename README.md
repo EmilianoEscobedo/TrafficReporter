@@ -1,6 +1,6 @@
 <div align="center">
   <h1>Traffic Reporter</h1>
-  <i>Traffic accident management and analysis system for impact journalism, developed for DOE Prensa ®.</i>
+  <i>Traffic accident management and analysis system for impact journalism, developed for La Trocha Digital.</i>
   <br>  <br>
   <p>
     Traffic Reporter is a Progressive Web Application (PWA) designed for collecting, visualizing, and analyzing traffic accident data. It enables journalists and analysts to register accidents, visualize them on interactive maps, generate detailed statistics, and export reports in PDF format.
