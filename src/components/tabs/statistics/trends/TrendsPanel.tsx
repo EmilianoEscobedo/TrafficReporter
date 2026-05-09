@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -31,9 +31,27 @@ interface TrendsPanelProps {
     accidents: AccidentRecord[];
 }
 
+const exportChartAsImage = (
+    chartRef: React.RefObject<ChartJS<'line'> | ChartJS<'bar'> | undefined>,
+    filename: string
+) => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const canvas = chart.canvas;
+    if (!canvas) return;
+    const url = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}_${new Date().toISOString().slice(0, 10)}.png`;
+    link.click();
+};
+
 export default function TrendsPanel({ accidents }: TrendsPanelProps) {
+    const timeSeriesRef = useRef<ChartJS<'line'> | undefined>(undefined);
+    const severityRef = useRef<ChartJS<'bar'> | undefined>(undefined);
+    const vehicleRef = useRef<ChartJS<'line'> | undefined>(undefined);
+
     const trendsData = useMemo(() => {
-        // Group accidents by date
         const byDate: Record<string, number> = {};
         const bySeverity: Record<string, Record<string, number>> = {};
         const byVehicle: Record<string, Record<string, number>> = {};
@@ -44,14 +62,11 @@ export default function TrendsPanel({ accidents }: TrendsPanelProps) {
             const date = new Date(accident.fecha);
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-            // Count by date
             byDate[monthKey] = (byDate[monthKey] || 0) + 1;
 
-            // Count by severity over time
             if (!bySeverity[monthKey]) bySeverity[monthKey] = {};
             bySeverity[monthKey][accident.gravedad] = (bySeverity[monthKey][accident.gravedad] || 0) + 1;
 
-            // Count by vehicle over time
             if (!byVehicle[monthKey]) byVehicle[monthKey] = {};
             accident.vehicles_involved?.forEach(vehicle => {
                 byVehicle[monthKey][vehicle] = (byVehicle[monthKey][vehicle] || 0) + 1;
@@ -144,23 +159,56 @@ export default function TrendsPanel({ accidents }: TrendsPanelProps) {
     return (
         <div className="trends-panel">
             <div className="trends-panel__section">
-                <h3 className="trends-panel__title">Evolución Temporal de Siniestros</h3>
+                <div className="trends-panel__title-row">
+                    <h3 className="trends-panel__title">Evolución Temporal de Siniestros</h3>
+                    <button
+                        className="trends-panel__export-btn"
+                        onClick={() => exportChartAsImage(timeSeriesRef, 'evolucion_temporal')}
+                    >
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Exportar Gráfico
+                    </button>
+                </div>
                 <div className="trends-panel__chart">
-                    <Line data={timeSeriesData} options={chartOptions} />
+                    <Line ref={timeSeriesRef} data={timeSeriesData} options={chartOptions} />
                 </div>
             </div>
 
             <div className="trends-panel__section">
-                <h3 className="trends-panel__title">Tendencia por Gravedad</h3>
+                <div className="trends-panel__title-row">
+                    <h3 className="trends-panel__title">Tendencia por Gravedad</h3>
+                    <button
+                        className="trends-panel__export-btn"
+                        onClick={() => exportChartAsImage(severityRef, 'tendencia_gravedad')}
+                    >
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Exportar Gráfico
+                    </button>
+                </div>
                 <div className="trends-panel__chart">
-                    <Bar data={severityTrendsData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, legend: { position: 'top' as const } } }} />
+                    <Bar ref={severityRef} data={severityTrendsData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, legend: { position: 'top' as const } } }} />
                 </div>
             </div>
 
             <div className="trends-panel__section">
-                <h3 className="trends-panel__title">Comparativa de Vehículos Implicados</h3>
+                <div className="trends-panel__title-row">
+                    <h3 className="trends-panel__title">Comparativa de Vehículos Implicados</h3>
+                    <button
+                        className="trends-panel__export-btn"
+                        onClick={() => exportChartAsImage(vehicleRef, 'comparativa_vehiculos')}
+                    >
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Exportar Gráfico
+                    </button>
+                </div>
                 <div className="trends-panel__chart">
-                    <Line data={vehicleTrendsData} options={chartOptions} />
+                    <Line ref={vehicleRef} data={vehicleTrendsData} options={chartOptions} />
                 </div>
             </div>
         </div>
