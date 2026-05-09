@@ -8,7 +8,7 @@ export default function LoginScreen() {
 
     useEffect(() => {
         if (unauthorizedEmail) {
-            setError('No tienes permiso para acceder. Si crees que se trata de un error, ponte en contacto con DOE PRENSA.');
+            setError('No tienes permiso para acceder. Si crees que se trata de un error, ponte en contacto con La Trocha Digital.');
         }
     }, [unauthorizedEmail]);
 
@@ -31,7 +31,7 @@ export default function LoginScreen() {
                 <div className="login-screen__header">
                     <img src="/logo.png" alt="Logo" className="login-screen__logo" />
                     <h2 className="login-screen__title">
-                        Sistema de Análisis de Siniestros Viales
+                        Monitor de Siniestros Viales
                     </h2>
                 </div>
                 <div className="login-screen__content">
