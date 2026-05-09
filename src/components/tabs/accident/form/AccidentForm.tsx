@@ -221,7 +221,7 @@ export default function AccidentForm({ editingRecord, onCancelEdit }: AccidentFo
                             <option value="">Seleccione...</option>
                             <option value="Calle/Pasaje simple">Calle/Pasaje simple</option>
                             <option value="Avenida SIN Boulevard">Avenida SIN Boulevard</option>
-                            <option value="Avenida CON Boulevard (Alto Riesgo)">Avenida CON Boulevard (Alto Riesgo)</option>
+                            <option value="Avenida CON Boulevard">Avenida CON Boulevard</option>
                         </select>
                     </div>
                 </div>

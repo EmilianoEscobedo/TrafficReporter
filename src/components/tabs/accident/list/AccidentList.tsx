@@ -31,12 +31,11 @@ export default function AccidentList({ onEdit, onOpenLightbox, onShowOnMap }: Ac
             if (record.fecha) {
                 const recordDate = new Date(record.fecha);
                 if (filters.startDate) {
-                    const start = new Date(filters.startDate);
+                    const start = new Date(`${filters.startDate}T00:00:00`);
                     if (recordDate < start) return false;
                 }
                 if (filters.endDate) {
-                    const end = new Date(filters.endDate);
-                    end.setHours(23, 59, 59, 999);
+                    const end = new Date(`${filters.endDate}T23:59:59.999`);
                     if (recordDate > end) return false;
                 }
             } else {
@@ -165,10 +164,10 @@ export default function AccidentList({ onEdit, onOpenLightbox, onShowOnMap }: Ac
                     <option value="">Vía...</option>
                     <option value="Calle/Pasaje simple">Calle/Pasaje simple</option>
                     <option value="Avenida SIN Boulevard">Avenida SIN Boulevard</option>
-                    <option value="Avenida CON Boulevard (Alto Riesgo)">Avenida CON Boulevard</option>
+                    <option value="Avenida CON Boulevard ">Avenida CON Boulevard</option>
                 </select>
                 <button onClick={handleClearFilters} className="accident-list__clear-btn">
-                    Limpiar
+                    Limpiar Filtros
                 </button>
             </div>
 
