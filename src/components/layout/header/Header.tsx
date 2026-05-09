@@ -11,10 +11,10 @@ export default function Header() {
                     <div className="header__brand">
                         <img src="logo.png" alt="Logo" className="header__logo" />
                         <div className="header__title-wrapper">
-                            <h1 className="header__title">Registro de Siniestros Viales</h1>
+                            <h1 className="header__title">Monitor de Siniestros Viales</h1>
                             <div className="header__subtitle">
                                 <p className="header__subtitle-text">
-                                    Herramienta de recolección y análisis para periodismo de impacto | DOE Prensa ®
+                                    Herramienta de recolección y análisis | La Trocha Digital
                                 </p>
                             </div>
                         </div>

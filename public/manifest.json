@@ -1,5 +1,5 @@
 {
-  "name": "Sistema de Análisis de Siniestros Viales",
+  "name": "Monitor de Siniestros Viales",
   "short_name": "Siniestros Viales",
   "description": "Herramienta de recolección y análisis de accidentes de tránsito",
   "start_url": "/",
