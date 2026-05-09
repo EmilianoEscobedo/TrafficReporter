@@ -1,6 +1,26 @@
 import type { AccidentRecord } from '@/types';
 import { showWarning, showError } from '@/utils/sweetalert';
 
+let _logoBase64Cache: string | null = null;
+
+const getLogoBase64 = async (): Promise<string> => {
+    if (_logoBase64Cache) return _logoBase64Cache;
+    try {
+        const response = await fetch('/logo.png');
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                _logoBase64Cache = reader.result as string;
+                resolve(_logoBase64Cache);
+            };
+            reader.readAsDataURL(blob);
+        });
+    } catch {
+        return '';
+    }
+};
+
 export const exportToCSV = (records: AccidentRecord[]): void => {
     if (records.length === 0) {
         showWarning('No hay datos para exportar.');
@@ -70,23 +90,34 @@ export const exportStatisticsToPDF = async (
     const loadingMsg = document.getElementById('stats-loading');
     if (loadingMsg) loadingMsg.style.display = 'none';
 
+    const logoSrc = await getLogoBase64();
+
     const headerId = 'temp-pdf-header';
     let headerDiv = document.getElementById(headerId);
     if (!headerDiv) {
         headerDiv = document.createElement('div');
         headerDiv.id = headerId;
-        headerDiv.className = 'mb-6';
+        headerDiv.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:0.75rem;border-bottom:2px solid #0f766e;';
+
+        if (logoSrc) {
+            const logo = document.createElement('img');
+            logo.src = logoSrc;
+            logo.style.cssText = 'width:48px;height:48px;object-fit:contain;flex-shrink:0;';
+            headerDiv.appendChild(logo);
+        }
+
+        const textBlock = document.createElement('div');
 
         const title = document.createElement('h1');
-        title.className = 'text-2xl font-bold text-gray-800 mb-2 border-b-2 border-teal-500 pb-2';
+        title.style.cssText = 'font-size:1.25rem;font-weight:700;color:#1f2937;margin:0 0 2px 0;';
         title.textContent = 'Estadísticas de Siniestros Viales';
 
         const subtitle = document.createElement('p');
-        subtitle.className = 'text-sm text-gray-500';
-        subtitle.textContent = 'Registro de Siniestros Viales - DOE Prensa';
+        subtitle.style.cssText = 'font-size:0.75rem;color:#6b7280;margin:0 0 2px 0;';
+        subtitle.textContent = 'Monitor de Siniestros Viales - La Trocha Digital';
 
         const subtitle1 = document.createElement('p');
-        subtitle1.className = 'text-sm text-gray-600 mb-1';
+        subtitle1.style.cssText = 'font-size:0.75rem;color:#374151;margin:0;';
 
         const formatDate = (dateStr: string) => {
             if (!dateStr) return '';
@@ -102,9 +133,10 @@ export const exportStatisticsToPDF = async (
             subtitle1.textContent = `Desde ${s} al ${e}`;
         }
 
-        headerDiv.appendChild(title);
-        headerDiv.appendChild(subtitle);
-        headerDiv.appendChild(subtitle1);
+        textBlock.appendChild(title);
+        textBlock.appendChild(subtitle);
+        textBlock.appendChild(subtitle1);
+        headerDiv.appendChild(textBlock);
         element.prepend(headerDiv);
     }
 
@@ -138,13 +170,38 @@ export const exportMapToPDF = async (elementId: string): Promise<void> => {
     if (!element) return;
 
     const actions = document.getElementById('map-actions');
-    const mapTitle = element.querySelector('h2');
-
     if (actions) actions.style.display = 'none';
 
-    const originalTitleClass = mapTitle?.className;
-    if (mapTitle) {
-        mapTitle.className = 'text-2xl font-bold text-gray-800 mb-2 border-b-2 border-teal-500 pb-2';
+    const logoSrc = await getLogoBase64();
+
+    const tempHeaderId = 'temp-map-pdf-header';
+    let tempHeader = document.getElementById(tempHeaderId);
+    if (!tempHeader) {
+        tempHeader = document.createElement('div');
+        tempHeader.id = tempHeaderId;
+        tempHeader.style.cssText = 'display:flex;align-items:center;gap:12px;padding:1rem 1.5rem;background:white;border-bottom:4px solid #0f766e;';
+
+        if (logoSrc) {
+            const logo = document.createElement('img');
+            logo.src = logoSrc;
+            logo.style.cssText = 'width:40px;height:40px;object-fit:contain;flex-shrink:0;';
+            tempHeader.appendChild(logo);
+        }
+
+        const textBlock = document.createElement('div');
+
+        const h1 = document.createElement('h1');
+        h1.style.cssText = 'font-size:1.125rem;font-weight:700;color:#1f2937;margin:0 0 2px 0;';
+        h1.textContent = 'Mapa de Accidentes Viales';
+
+        const p = document.createElement('p');
+        p.style.cssText = 'font-size:0.75rem;color:#6b7280;margin:0;';
+        p.textContent = 'Monitor de Siniestros Viales - La Trocha Digital';
+
+        textBlock.appendChild(h1);
+        textBlock.appendChild(p);
+        tempHeader.appendChild(textBlock);
+        element.prepend(tempHeader);
     }
 
     element.scrollIntoView();
@@ -165,12 +222,12 @@ export const exportMapToPDF = async (elementId: string): Promise<void> => {
             showError('Error al generar el PDF del mapa.');
         } finally {
             if (actions) actions.style.display = 'flex';
-            if (mapTitle && originalTitleClass) mapTitle.className = originalTitleClass;
+            if (tempHeader) tempHeader.remove();
         }
     }, 500);
 };
 
-export const exportMapToHTML = (records: AccidentRecord[]): void => {
+export const exportMapToHTML = async (records: AccidentRecord[], showDetails: boolean = true): Promise<void> => {
     if (records.length === 0) {
         showWarning('No hay accidentes para exportar en el mapa.');
         return;
@@ -211,7 +268,7 @@ export const exportMapToHTML = (records: AccidentRecord[]): void => {
                 <p style="margin: 4px 0; font-size: 12px; color: #4b5563;"><strong>Gravedad:</strong> ${escapeHtml(record.gravedad || 'N/A')}</p>
                 <p style="margin: 4px 0; font-size: 12px; color: #4b5563;"><strong>Tipo de Vía:</strong> ${escapeHtml(record.tipo_via || 'N/A')}</p>
                 <p style="margin: 4px 0; font-size: 12px; color: #4b5563;"><strong>Vehículos:</strong> ${escapeHtml(vehicles || 'N/A')}</p>
-                ${record.descripcion ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">${escapeHtml(record.descripcion)}</p>` : ''}
+                ${showDetails && record.descripcion ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">${escapeHtml(record.descripcion)}</p>` : ''}
             </div>
         `;
 
@@ -222,6 +279,11 @@ export const exportMapToHTML = (records: AccidentRecord[]): void => {
             color: getSeverityColor(record.gravedad || '')
         };
     });
+
+    const logoSrc = await getLogoBase64();
+    const logoTag = logoSrc
+        ? `<img src="${logoSrc}" alt="Logo" style="width:48px;height:48px;object-fit:contain;flex-shrink:0;" />`
+        : '';
 
     const htmlContent = `<!DOCTYPE html>
         <html lang="es">
@@ -242,22 +304,25 @@ export const exportMapToHTML = (records: AccidentRecord[]): void => {
                 }
                 .header {
                     background-color: white;
-                    padding: 2rem 1.5rem;
+                    padding: 1rem 1.5rem;
                     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
                     border-bottom: 4px solid #0f766e;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
                 }
-                .header h1 {
-                    font-size: 2rem;
+                .header-text h1 {
+                    font-size: 1.5rem;
                     font-weight: 700;
                     color: #1f2937;
-                    margin-bottom: 0.5rem;
+                    margin-bottom: 4px;
                 }
-                .header p {
-                    font-size: 1rem;
+                .header-text p {
+                    font-size: 0.875rem;
                     color: #6b7280;
                 }
                 #map {
-                    height: calc(100vh - 140px);
+                    height: calc(100vh - 88px);
                     width: 100%;
                 }
                 .leaflet-popup-content-wrapper {
@@ -267,17 +332,21 @@ export const exportMapToHTML = (records: AccidentRecord[]): void => {
         </head>
         <body>
             <div class="header">
-                <h1>Mapa de Accidentes Viales</h1>
-                <p>Registro de Siniestros Viales - DOE Prensa</p>
+                ${logoTag}
+                <div class="header-text">
+                    <h1>Mapa de Accidentes Viales</h1>
+                    <p>Monitor de Siniestros Viales - La Trocha Digital</p>
+                </div>
             </div>
             <div id="map"></div>
             <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
             <script>
                 const map = L.map('map').setView([-27.4692, -58.8306], 13);
                 
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors',
-                    maxZoom: 19
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 20
                 }).addTo(map);
 
                 const markers = ${JSON.stringify(markers)};
